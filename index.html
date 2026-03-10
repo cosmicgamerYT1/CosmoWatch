@@ -2720,7 +2720,11 @@ function handleVideoUpload(input) {
       saveMyVideos(myVids);
       input.value = '';
       URL.revokeObjectURL(objUrl);
-      if (cloudUrl) toast('✅ "' + title + '" uploaded and synced to cloud!');
+      if (cloudUrl) {
+        toast('✅ "' + title + '" uploaded and synced to cloud!');
+      } else {
+        toast('⚠️ Saved locally but cloud sync failed — check console for details');
+      }
       syncChannelToShared();
       renderCosmoEditor();
       renderHomeMyVideos();
@@ -2756,7 +2760,10 @@ function deleteMyVideo(i) {
   toast('🗑 Video deleted');
 }
 
-function playMyVideo(id) {
+async function playMyVideo(id) {
+  // Always fetch fresh from Firebase first so we get latest cloudUrl
+  await loadSharedChannels();
+
   // Look up video metadata across ALL accounts, not just the current user
   const { vid, account } = getVideoMetaById(id);
 
@@ -2765,13 +2772,13 @@ function playMyVideo(id) {
     if (blob) {
       url = URL.createObjectURL(blob);
     } else {
-      // Not in local IndexedDB — check if it has a Firebase Storage URL
+      // Not in local IndexedDB — check Firebase for cloudUrl
       const allVids = [...getMyVideos(), ...sharedVideos];
       const meta = allVids.find(v => v.id === id);
       if (meta && meta.cloudUrl) {
         url = meta.cloudUrl; // stream directly from Cloudinary
       } else {
-        toast("⚠ This video is stored on the uploader's device. Ask them to re-upload so it syncs to cloud.");
+        toast("⚠ Cloud upload may still be in progress — try again in a moment.");
         return;
       }
     }
