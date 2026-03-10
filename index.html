@@ -987,7 +987,8 @@ async function syncChannelToShared() {
       ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
       thumb: v.thumb || '', privacy: 'public', _isMyVideo: true,
       uploaderAvatar: currentUser.avatarImg || '',
-      uploaderColor: currentUser.avatarColor || ''
+      uploaderColor: currentUser.avatarColor || '',
+      cloudUrl: v.cloudUrl || ''
     }));
     const data = {
       name: currentUser.name,
@@ -2683,18 +2684,38 @@ function handleVideoUpload(input) {
     if (saved) return;
     saved = true;
     // Store the actual file blob in IndexedDB so it survives reload
-    storeVideoBlob(id, file).then(() => {
+    storeVideoBlob(id, file).then(async () => {
       _uploadInProgress = false;
-      const myVids = getMyVideos();
       const uploaderName = currentUser ? currentUser.name : 'You';
       const uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
       const uploaderColor = currentUser && currentUser.avatarColor ? currentUser.avatarColor : '';
-      myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor });
+
+      // Upload video to Cloudinary so anyone can watch it from any browser
+      let cloudUrl = '';
+      try {
+        toast('⏫ Uploading to cloud… please wait');
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'cosmowatch');
+        formData.append('public_id', id);
+        formData.append('resource_type', 'video');
+        const uploadRes = await fetch(
+          'https://api.cloudinary.com/v1_1/dcy17iamc/video/upload',
+          { method: 'POST', body: formData }
+        );
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          cloudUrl = uploadData.secure_url || '';
+        }
+      } catch(e) { console.warn('Cloudinary upload failed', e); }
+
+      const myVids = getMyVideos();
+      myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor, cloudUrl });
       saveMyVideos(myVids);
       input.value = '';
       URL.revokeObjectURL(objUrl);
       toast('✅ "' + title + '" uploaded!');
-      syncChannelToShared(); // push new video to Firebase so others can find it
+      syncChannelToShared();
       renderCosmoEditor();
       renderHomeMyVideos();
     }).catch(() => {
@@ -2733,9 +2754,21 @@ function playMyVideo(id) {
   // Look up video metadata across ALL accounts, not just the current user
   const { vid, account } = getVideoMetaById(id);
 
-  getVideoBlob(id).then(blob => {
-    if (!blob) { toast('⚠ Video data not found — try re-uploading'); return; }
-    const url = URL.createObjectURL(blob);
+  getVideoBlob(id).then(async blob => {
+    let url;
+    if (blob) {
+      url = URL.createObjectURL(blob);
+    } else {
+      // Not in local IndexedDB — check if it has a Firebase Storage URL
+      const allVids = [...getMyVideos(), ...sharedVideos];
+      const meta = allVids.find(v => v.id === id);
+      if (meta && meta.cloudUrl) {
+        url = meta.cloudUrl; // stream directly from Cloudinary
+      } else {
+        toast("⚠ This video is stored on the uploader's device. Ask them to re-upload so it syncs to cloud.");
+        return;
+      }
+    }
 
     const title        = vid ? vid.title : 'Uploaded Video';
     const uploaderName = vid ? (vid.ch || 'Unknown') : 'Unknown';
