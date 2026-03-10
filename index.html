@@ -526,6 +526,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
         <button class="chip" onclick="filterChip(this,'news')">News</button>
         <button class="chip" onclick="filterChip(this,'sports')">Sports</button>
       </div>
+      <div id="cg-home-claim-wrap" style="display:none;justify-content:center;padding:18px 0 6px">
+        <button id="cg-home-claim-btn" onclick="claimCosmicGamerHome()"
+          style="background:linear-gradient(135deg,#3ea6ff,#9334e6);border:none;color:#fff;padding:13px 32px;border-radius:30px;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(62,166,255,.35);display:flex;align-items:center;gap:10px;transition:opacity .15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+          Sign in as Cosmic Gamer
+        </button>
+      </div>
       <div class="vgrid" id="grid"></div>
     </div>
 
@@ -998,6 +1006,8 @@ async function loadSharedChannels() {
 
 // Load shared channels on startup
 loadSharedChannels();
+// Check if Cosmic Gamer claim button should show
+checkCgClaimButton();
 
 function doSignOut() {
   currentUser = null;
@@ -1533,16 +1543,45 @@ function filterByChannel(el, chName) {
 }
 
 function claimCosmicGamer() {
-  // Mark as permanently claimed in localStorage — instant, never async
-  localStorage.setItem('cosmowatch_cg_claimed', 'true');
+  _doClaimCosmicGamer();
+}
 
-  // Hide the button immediately
-  const btn = document.getElementById('cg-claim-btn');
-  if (btn) btn.style.display = 'none';
+function claimCosmicGamerHome() {
+  _doClaimCosmicGamer();
+}
+
+async function _doClaimCosmicGamer() {
+  // Hide buttons immediately
+  const btn1 = document.getElementById('cg-claim-btn');
+  const btn2 = document.getElementById('cg-home-claim-btn');
+  const wrap = document.getElementById('cg-home-claim-wrap');
+  if (btn1) btn1.style.display = 'none';
+  if (btn2) btn2.style.display = 'none';
+  if (wrap) wrap.style.display = 'none';
+
+  // Mark as claimed in Firebase — all browsers will see this
+  try {
+    await fetch(CW_DB + '/cg_claimed.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ claimed: true, at: Date.now() })
+    });
+  } catch(e) {}
 
   // Sign in
   finishAuth('CosmicGamer', 'linear-gradient(135deg,#3ea6ff,#9334e6)');
   toast('🚀 Signed in as CosmicGamer!');
+}
+
+async function checkCgClaimButton() {
+  try {
+    const res = await fetch(CW_DB + '/cg_claimed.json');
+    const data = await res.json();
+    if (data && data.claimed) return; // already claimed — don't show
+    // Not claimed yet — show the button
+    const wrap = document.getElementById('cg-home-claim-wrap');
+    if (wrap && !currentUser) wrap.style.display = 'flex';
+  } catch(e) {}
 }
 
 // ─────────────────────────────────────────────
