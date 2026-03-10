@@ -1574,14 +1574,17 @@ async function _doClaimCosmicGamer() {
 }
 
 async function checkCgClaimButton() {
+  // Don't show if already signed in as CosmicGamer
+  if (currentUser && currentUser.name === 'CosmicGamer') return;
   try {
     const res = await fetch(CW_DB + '/cg_claimed.json');
     const data = await res.json();
-    if (data && data.claimed) return; // already claimed — don't show
-    // Not claimed yet — show the button
-    const wrap = document.getElementById('cg-home-claim-wrap');
-    if (wrap && !currentUser) wrap.style.display = 'flex';
-  } catch(e) {}
+    if (data && data.claimed) return; // already claimed by someone — hide forever
+  } catch(e) {
+    // If fetch fails, still show the button so user isn't locked out
+  }
+  const wrap = document.getElementById('cg-home-claim-wrap');
+  if (wrap) wrap.style.display = 'flex';
 }
 
 // ─────────────────────────────────────────────
