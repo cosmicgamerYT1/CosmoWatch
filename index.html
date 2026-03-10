@@ -1703,7 +1703,7 @@ function renderGrid(list) {
           <div class="vinfo">
             <div class="vtitle">${v.title}</div>
             <div class="vch">${v.ch||'Unknown'}</div>
-            <div class="vstats">${v.views ? v.views + ' &bull; ' : ''}${v.ago || v.date || ''}</div>
+            <div class="vstats">${v.views ? v.views + ' &bull; ' : ''}${v.uploadedAt ? timeAgoFromTimestamp(v.uploadedAt) : (v.ago || v.date || '')}</div>
           </div>
         </div>`;
       card.addEventListener('click', () => playMyVideo(v.id));
@@ -1789,7 +1789,7 @@ function showMyVideosPage() {
         <div class="vinfo">
           <div class="vtitle">${v.title}</div>
           <div class="vch">${v.ch || (currentUser ? currentUser.name : 'You')}</div>
-          <div class="vstats">${v.ago || v.date || ''}</div>
+          <div class="vstats">${v.uploadedAt ? timeAgoFromTimestamp(v.uploadedAt) : (v.ago || v.date || '')}</div>
         </div>
       </div>`;
     card.addEventListener('click', () => playMyVideo(v.id));
@@ -2107,9 +2107,19 @@ function submitComment(input) {
 //  RELATED
 // ─────────────────────────────────────────────
 function renderRelated(curIdx) {
-  document.getElementById('relList').innerHTML = VIDEOS
-    .filter((_,i) => i !== curIdx)
-    .map(v => `
+  const curVideo = VIDEOS[curIdx];
+  const curCh = curVideo ? curVideo.ch : null;
+
+  // Show videos from the same channel first, then fill with others if needed
+  let sameChannel = VIDEOS.filter((v, i) => i !== curIdx && v.ch === curCh);
+  let others = VIDEOS.filter((v, i) => i !== curIdx && v.ch !== curCh);
+
+  // If same channel has fewer than 3 videos, pad with others
+  const list = sameChannel.length >= 3
+    ? sameChannel
+    : [...sameChannel, ...others].slice(0, 12);
+
+  document.getElementById('relList').innerHTML = list.map(v => `
       <div class="rel-card" onclick="openVideo(${VIDEOS.indexOf(v)})">
         <div class="rel-tw">
           <img class="rel-thumb" src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg"
@@ -2177,6 +2187,24 @@ function getAllPublicVideos() {
     }
   } catch(e) {}
   return allVideos;
+}
+
+function timeAgoFromTimestamp(ts) {
+  if (!ts) return '';
+  const secs = Math.floor((Date.now() - ts) / 1000);
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return mins + ' minute' + (mins !== 1 ? 's' : '') + ' ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + ' hour' + (hrs !== 1 ? 's' : '') + ' ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + ' day' + (days !== 1 ? 's' : '') + ' ago';
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return weeks + ' week' + (weeks !== 1 ? 's' : '') + ' ago';
+  const months = Math.floor(days / 30);
+  if (months < 12) return months + ' month' + (months !== 1 ? 's' : '') + ' ago';
+  const years = Math.floor(days / 365);
+  return years + ' year' + (years !== 1 ? 's' : '') + ' ago';
 }
 
 function getMyVideos() {
@@ -2636,7 +2664,7 @@ function handleVideoUpload(input) {
       const uploaderName = currentUser ? currentUser.name : 'You';
       const uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
       const uploaderColor = currentUser && currentUser.avatarColor ? currentUser.avatarColor : '';
-      myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor });
+      myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor });
       saveMyVideos(myVids);
       input.value = '';
       URL.revokeObjectURL(objUrl);
