@@ -711,6 +711,7 @@ let sidebarOpen = true;
 let notifOpen   = false;
 let currentUser = null;
 let sharedChannels = []; // channels synced from other browsers via shared storage
+let sharedVideos = [];   // public videos from all Firebase channels
 let liked = false, disliked = false, subscribed = false, saved = false;
 let autoplayEnabled = true;
 let currentVideoId  = '';
@@ -980,11 +981,20 @@ async function syncChannelToShared() {
   if (!currentUser) return;
   try {
     const key = currentUser.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    // Include public video metadata so other browsers can find them in search
+    const myVids = getMyVideos().filter(v => v.privacy === 'public' || !v.privacy).map(v => ({
+      id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
+      ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
+      thumb: v.thumb || '', privacy: 'public', _isMyVideo: true,
+      uploaderAvatar: currentUser.avatarImg || '',
+      uploaderColor: currentUser.avatarColor || ''
+    }));
     const data = {
       name: currentUser.name,
       ava: currentUser.avatarImg || '',
       avatarColor: currentUser.avatarColor || 'linear-gradient(135deg,#3ea6ff,#1a73e8)',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      videos: myVids
     };
     await fetch(CW_DB + '/channels/' + key + '.json', {
       method: 'PUT',
@@ -1001,6 +1011,15 @@ async function loadSharedChannels() {
     const data = await res.json();
     if (!data) return;
     sharedChannels = Object.values(data).filter(Boolean);
+    // Also build sharedVideos — all public videos from all Firebase channels
+    sharedVideos = [];
+    sharedChannels.forEach(ch => {
+      if (ch.videos && Array.isArray(ch.videos)) {
+        ch.videos.forEach(v => {
+          if (!sharedVideos.find(sv => sv.id === v.id)) sharedVideos.push(v);
+        });
+      }
+    });
   } catch(e) { console.warn('loadSharedChannels failed', e); }
 }
 
@@ -1536,11 +1555,17 @@ function filterByChannel(el, chName) {
     return;
   }
 
-  // Default: filter grid on home page
-  document.getElementById('special-page').style.display = 'none';
-  stopPlayer(); document.getElementById('player-page').classList.remove('on');
-  document.getElementById('homePage').style.display = 'block';
-  renderGrid(VIDEOS.filter(v => v.ch === chName));
+  // Default: if channel has built-in VIDEOS show filtered grid, otherwise go to full channel page
+  const builtInVids = VIDEOS.filter(v => v.ch === chName);
+  if (builtInVids.length > 0) {
+    document.getElementById('special-page').style.display = 'none';
+    stopPlayer(); document.getElementById('player-page').classList.remove('on');
+    document.getElementById('homePage').style.display = 'block';
+    renderGrid(builtInVids);
+  } else {
+    // User-created channel — show full channel page
+    goToChannelPage(chName, null);
+  }
 }
 
 function claimCosmicGamer() {
@@ -2669,6 +2694,7 @@ function handleVideoUpload(input) {
       input.value = '';
       URL.revokeObjectURL(objUrl);
       toast('✅ "' + title + '" uploaded!');
+      syncChannelToShared(); // push new video to Firebase so others can find it
       renderCosmoEditor();
       renderHomeMyVideos();
     }).catch(() => {
@@ -3269,12 +3295,17 @@ function goToChannelPage(chName, avatarEl) {
   let chVids = VIDEOS.filter(v => v.ch === chName);
   const _ownChannel = currentUser && (chName === currentUser.name || chName === 'CosmicGamer');
 
-  // Pull in uploaded videos from ALL accounts (not just the logged-in one)
+  // Pull in uploaded videos from ALL accounts (local + Firebase)
   const allUploaded = getAllPublicVideos();
   const uploadedByChannel = allUploaded
     .filter(v => v.ch === chName || (_ownChannel && !v.ch))
     .map(v => Object.assign({}, v, { ch: chName, _isMyVideo: true }));
-  chVids = [...chVids, ...uploadedByChannel];
+  // Also pull from Firebase shared videos
+  const sharedByChannel = sharedVideos.filter(v =>
+    v.ch && v.ch.toLowerCase() === chName.toLowerCase() &&
+    !uploadedByChannel.find(u => u.id === v.id)
+  );
+  chVids = [...chVids, ...uploadedByChannel, ...sharedByChannel];
 
   const sample = chVids[0] || {};
 
@@ -3480,6 +3511,13 @@ function _runSearch(q) {
       if (!channelMap[key]) channelMap[key] = { name: v.ch, ava: v.uploaderAvatar||'', subs: '', videos: [] };
       channelMap[key].videos.push({ ...v, _isMyVideo: true });
     });
+  // Also add channels from Firebase shared channels list (for avatar resolution)
+  sharedChannels.forEach(sc => {
+    if (!sc.name) return;
+    const key = sc.name.toLowerCase();
+    if (!channelMap[key]) channelMap[key] = { name: sc.name, ava: sc.ava || '', subs: '', videos: [], _sharedOnly: true };
+    else if (!channelMap[key].ava && sc.ava) channelMap[key].ava = sc.ava;
+  });
 
   // Add shared channels from other browsers
   sharedChannels.forEach(sc => {
@@ -3502,11 +3540,17 @@ function _runSearch(q) {
   );
   const myResults = allPublicVids.filter(v => {
     if (v.privacy === 'scheduled' && v.scheduledAt && now >= v.scheduledAt) return true;
-    return v.privacy === 'public';
-  }).filter(v => v.title.toLowerCase().includes(q) || (v.ch && v.ch.toLowerCase().includes(q)))
+    return v.privacy === 'public' || !v.privacy; // treat missing privacy as public
+  }).filter(v => v.title && (v.title.toLowerCase().includes(q) || (v.ch && v.ch.toLowerCase().includes(q))))
     .map(v => ({ ...v, _isMyVideo: true }));
 
-  const combined = [...ytResults, ...myResults];
+  // Also include videos from other browsers (stored in Firebase)
+  const myIds = new Set([...ytResults, ...myResults].map(v => v.id));
+  const sharedResults = sharedVideos.filter(v =>
+    !myIds.has(v.id) &&
+    v.title && (v.title.toLowerCase().includes(q) || (v.ch && v.ch.toLowerCase().includes(q)))
+  );
+  const combined = [...ytResults, ...myResults, ...sharedResults];
 
   // Render channel banners above grid
   _renderSearchChannelBanners(matchedChannels, q);
@@ -3657,7 +3701,15 @@ function ctxUnsub() {
   try {
     const subs = getSubscriptions();
     const meta = getChMeta();
-    subs.forEach(ch => ensureSubSidebarItem(ch, meta[ch] || { name: ch, ava: '' }));
+    subs.forEach(ch => {
+      // Try local meta first, then sharedChannels for avatar
+      let info = meta[ch] || { name: ch, ava: '' };
+      if (!info.ava) {
+        const shared = sharedChannels.find(sc => sc.name && sc.name.toLowerCase() === ch.toLowerCase());
+        if (shared && shared.ava) info = { ...info, ava: shared.ava };
+      }
+      ensureSubSidebarItem(ch, info);
+    });
     const countEl = document.querySelector('.s-count');
     if (countEl) countEl.textContent = subs.length;
   } catch(e) {}
