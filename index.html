@@ -1413,6 +1413,7 @@ function saveProfile() {
 
   toast('✅ Profile saved!');
   syncChannelToShared();
+  saveCgAccountToFirebase();
   showChannelEditor();
 }
 
@@ -1568,9 +1569,63 @@ async function _doClaimCosmicGamer() {
     });
   } catch(e) {}
 
-  // Sign in
+  // Load the saved CosmicGamer account from Firebase
+  try {
+    const res = await fetch(CW_DB + '/cg_account.json');
+    const acc = await res.json();
+    if (acc && acc.name) {
+      // Restore into localStorage so finishAuth / applyAuth work normally
+      const restored = {
+        _id: acc._id || 'cg_main',
+        name: acc.name,
+        avatarColor: acc.avatarColor || 'linear-gradient(135deg,#3ea6ff,#9334e6)',
+        avatarImg: acc.avatarImg || ''
+      };
+      // Add to accounts list if not already there
+      let accounts = [];
+      try { accounts = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]'); } catch(e) {}
+      if (!accounts.find(a => a._id === restored._id)) {
+        accounts.push(restored);
+        localStorage.setItem('cosmowatch_accounts', JSON.stringify(accounts));
+      }
+      // Restore videos
+      if (acc.videos) {
+        localStorage.setItem('cosmowatch_vids_' + restored._id, JSON.stringify(acc.videos));
+      }
+      switchToAccount(restored._id);
+      toast('🚀 Signed in as ' + restored.name + '!');
+      return;
+    }
+  } catch(e) {}
+
+  // No saved account in Firebase — sign in fresh
   finishAuth('CosmicGamer', 'linear-gradient(135deg,#3ea6ff,#9334e6)');
   toast('🚀 Signed in as CosmicGamer!');
+}
+
+async function saveCgAccountToFirebase() {
+  if (!currentUser) return;
+  // Only back up if this is the CosmicGamer owner account
+  try {
+    const claimedRes = await fetch(CW_DB + '/cg_claimed.json');
+    const claimedData = await claimedRes.json();
+    if (!claimedData || !claimedData.claimed) return; // not claimed yet, skip
+  } catch(e) { return; }
+  try {
+    const videos = getMyVideos();
+    const data = {
+      _id: currentUser._id || 'cg_main',
+      name: currentUser.name,
+      avatarColor: currentUser.avatarColor || '',
+      avatarImg: currentUser.avatarImg || '',
+      videos: videos
+    };
+    await fetch(CW_DB + '/cg_account.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {}
 }
 
 async function checkCgClaimButton() {
