@@ -1002,6 +1002,16 @@ async function syncChannelToShared() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
+    // Also write each video's cloudUrl to a flat /videos path for easy lookup
+    for (const v of myVids) {
+      if (v.cloudUrl) {
+        await fetch(CW_DB + '/videos/' + v.id + '.json', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cloudUrl: v.cloudUrl, title: v.title, ch: currentUser.name })
+        });
+      }
+    }
   } catch(e) { console.warn('syncChannelToShared failed', e); }
 }
 
@@ -2720,12 +2730,13 @@ function handleVideoUpload(input) {
       saveMyVideos(myVids);
       input.value = '';
       URL.revokeObjectURL(objUrl);
+      // Await Firebase sync so cloudUrl is saved before anyone tries to play
+      await syncChannelToShared();
       if (cloudUrl) {
-        toast('✅ "' + title + '" uploaded and synced to cloud!');
+        toast('✅ "' + title + '" uploaded and ready to watch!');
       } else {
         toast('⚠️ Saved locally but cloud sync failed — check console for details');
       }
-      syncChannelToShared();
       renderCosmoEditor();
       renderHomeMyVideos();
     }).catch(() => {
@@ -2778,8 +2789,20 @@ async function playMyVideo(id) {
       if (meta && meta.cloudUrl) {
         url = meta.cloudUrl; // stream directly from Cloudinary
       } else {
-        toast("⚠ Cloud upload may still be in progress — try again in a moment.");
-        return;
+        // Last resort: fetch cloudUrl directly from Firebase flat videos path
+        try {
+          const r = await fetch(CW_DB + '/videos/' + id + '.json');
+          const vdata = await r.json();
+          if (vdata && vdata.cloudUrl) {
+            url = vdata.cloudUrl;
+          } else {
+            toast("⚠ Cloud upload may still be in progress — try again in a moment.");
+            return;
+          }
+        } catch(e) {
+          toast("⚠ Could not reach cloud storage — check your internet connection.");
+          return;
+        }
       }
     }
 
