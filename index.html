@@ -985,8 +985,9 @@ async function syncChannelToShared() {
     const myVids = getMyVideos().filter(v => v.privacy === 'public' || !v.privacy).map(v => ({
       id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
       ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
-      thumb: v.thumb || '', privacy: 'public', _isMyVideo: true,
-      uploaderAvatar: currentUser.avatarImg || '',
+      // Do NOT include thumb — base64 images make the payload too large for Firebase
+      privacy: 'public', _isMyVideo: true,
+      uploaderAvatar: '', // skip avatars too — keep payload small
       uploaderColor: currentUser.avatarColor || '',
       cloudUrl: v.cloudUrl || ''
     }));
@@ -1008,7 +1009,7 @@ async function syncChannelToShared() {
         await fetch(CW_DB + '/videos/' + v.id + '.json', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cloudUrl: v.cloudUrl, title: v.title, ch: currentUser.name })
+          body: JSON.stringify({ cloudUrl: v.cloudUrl, title: v.title, ch: currentUser.name, id: v.id })
         });
       }
     }
@@ -2772,8 +2773,28 @@ function deleteMyVideo(i) {
 }
 
 async function playMyVideo(id) {
-  // Always fetch fresh from Firebase first so we get latest cloudUrl
-  await loadSharedChannels();
+  // Try to get cloudUrl — check local first, then Firebase directly
+  async function getCloudUrl() {
+    // 1. Check local videos
+    const localMeta = getMyVideos().find(v => v.id === id);
+    if (localMeta && localMeta.cloudUrl) return localMeta.cloudUrl;
+    // 2. Check already-loaded sharedVideos
+    const sharedMeta = sharedVideos.find(v => v.id === id);
+    if (sharedMeta && sharedMeta.cloudUrl) return sharedMeta.cloudUrl;
+    // 3. Fetch directly from Firebase flat /videos path
+    try {
+      const r = await fetch(CW_DB + '/videos/' + id + '.json');
+      const vdata = await r.json();
+      if (vdata && vdata.cloudUrl) return vdata.cloudUrl;
+    } catch(e) {}
+    // 4. Try refreshing all channels
+    try {
+      await loadSharedChannels();
+      const refreshed = sharedVideos.find(v => v.id === id);
+      if (refreshed && refreshed.cloudUrl) return refreshed.cloudUrl;
+    } catch(e) {}
+    return null;
+  }
 
   // Look up video metadata across ALL accounts, not just the current user
   const { vid, account } = getVideoMetaById(id);
@@ -2783,26 +2804,12 @@ async function playMyVideo(id) {
     if (blob) {
       url = URL.createObjectURL(blob);
     } else {
-      // Not in local IndexedDB — check Firebase for cloudUrl
-      const allVids = [...getMyVideos(), ...sharedVideos];
-      const meta = allVids.find(v => v.id === id);
-      if (meta && meta.cloudUrl) {
-        url = meta.cloudUrl; // stream directly from Cloudinary
+      const cloudUrl = await getCloudUrl();
+      if (cloudUrl) {
+        url = cloudUrl;
       } else {
-        // Last resort: fetch cloudUrl directly from Firebase flat videos path
-        try {
-          const r = await fetch(CW_DB + '/videos/' + id + '.json');
-          const vdata = await r.json();
-          if (vdata && vdata.cloudUrl) {
-            url = vdata.cloudUrl;
-          } else {
-            toast("⚠ Cloud upload may still be in progress — try again in a moment.");
-            return;
-          }
-        } catch(e) {
-          toast("⚠ Could not reach cloud storage — check your internet connection.");
-          return;
-        }
+        toast("⚠ Video not found in cloud. Ask the uploader to re-upload.");
+        return;
       }
     }
 
