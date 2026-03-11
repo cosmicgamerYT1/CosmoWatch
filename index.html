@@ -2684,7 +2684,7 @@ function deleteVideoBlob(id) {
   }));
 }
 
-function handleVideoUpload(input) {
+async function handleVideoUpload(input) {
   if (!input.files || !input.files[0]) return;
   if (_uploadInProgress) return;
   _uploadInProgress = true;
@@ -2703,59 +2703,55 @@ function handleVideoUpload(input) {
   vid.playsInline = true;
 
   let saved = false;
-  function doSave(thumb) {
+  async function doSave(thumb) {
     if (saved) return;
     saved = true;
-    // Store the actual file blob in IndexedDB so it survives reload
-    storeVideoBlob(id, file).then(async () => {
-      _uploadInProgress = false;
-      const uploaderName = currentUser ? currentUser.name : 'You';
-      const uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
-      const uploaderColor = currentUser && currentUser.avatarColor ? currentUser.avatarColor : '';
+    // Upload to Cloudinary FIRST (independently of IndexedDB)
+    _uploadInProgress = false;
+    const uploaderName = currentUser ? currentUser.name : 'You';
+    const uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
+    const uploaderColor = currentUser && currentUser.avatarColor ? currentUser.avatarColor : '';
 
-      // Upload video to Cloudinary so anyone can watch it from any browser
-      let cloudUrl = '';
-      try {
-        toast('⏫ Uploading to cloud… please wait');
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'cosmowatch');
-        // Note: public_id is not appended — unsigned presets don't allow it
-        const uploadRes = await fetch(
-          'https://api.cloudinary.com/v1_1/dcy17iamc/video/upload',
-          { method: 'POST', body: formData }
-        );
-        const uploadData = await uploadRes.json();
-        if (uploadRes.ok && uploadData.secure_url) {
-          cloudUrl = uploadData.secure_url;
-        } else {
-          // Show the actual error from Cloudinary
-          console.error('Cloudinary error:', uploadData);
-          toast('⚠️ Cloud upload failed: ' + (uploadData.error && uploadData.error.message ? uploadData.error.message : 'Unknown error') + ' — video saved locally only');
-        }
-      } catch(e) {
-        console.error('Cloudinary upload exception:', e);
-        toast('⚠️ Cloud upload failed: ' + e.message + ' — video saved locally only');
-      }
-
-      const myVids = getMyVideos();
-      myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor, cloudUrl });
-      saveMyVideos(myVids);
-      input.value = '';
-      URL.revokeObjectURL(objUrl);
-      // Await Firebase sync so cloudUrl is saved before anyone tries to play
-      await syncChannelToShared();
-      if (cloudUrl) {
-        toast('✅ "' + title + '" uploaded and ready to watch!');
+    let cloudUrl = '';
+    try {
+      toast('⏫ Uploading to cloud… please wait');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'cosmowatch');
+      const uploadRes = await fetch(
+        'https://api.cloudinary.com/v1_1/dcy17iamc/video/upload',
+        { method: 'POST', body: formData }
+      );
+      const uploadData = await uploadRes.json();
+      if (uploadRes.ok && uploadData.secure_url) {
+        cloudUrl = uploadData.secure_url;
+        toast('☁️ Cloud upload done! Saving locally…');
       } else {
-        toast('⚠️ Saved locally but cloud sync failed — check console for details');
+        const errMsg = (uploadData.error && uploadData.error.message) ? uploadData.error.message : JSON.stringify(uploadData);
+        alert('Cloudinary error: ' + errMsg);
+        console.error('Cloudinary error:', uploadData);
       }
-      renderCosmoEditor();
-      renderHomeMyVideos();
-    }).catch(() => {
-      _uploadInProgress = false;
-      toast('❌ Storage failed — video too large for browser');
-    });
+    } catch(e) {
+      alert('Cloudinary exception: ' + e.message);
+      console.error('Cloudinary upload exception:', e);
+    }
+
+    // Save to IndexedDB (best effort — not required for cloud playback)
+    try { await storeVideoBlob(id, file); } catch(e) { console.warn('IndexedDB save failed:', e); }
+
+    const myVids = getMyVideos();
+    myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor, cloudUrl });
+    saveMyVideos(myVids);
+    input.value = '';
+    URL.revokeObjectURL(objUrl);
+    await syncChannelToShared();
+    if (cloudUrl) {
+      toast('✅ "' + title + '" uploaded and ready to watch!');
+    } else {
+      toast('⚠️ Saved locally only — cloud upload failed');
+    }
+    renderCosmoEditor();
+    renderHomeMyVideos();
   }
 
   vid.onloadeddata = () => { vid.currentTime = 1; };
