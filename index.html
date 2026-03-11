@@ -982,18 +982,30 @@ async function syncChannelToShared() {
   try {
     const key = currentUser.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
     // Include public video metadata so other browsers can find them in search
-    const myVids = getMyVideos().filter(v => v.privacy === 'public' || !v.privacy).map(v => ({
-      id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
-      ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
-      // Do NOT include thumb — base64 images make the payload too large for Firebase
-      privacy: 'public', _isMyVideo: true,
-      uploaderAvatar: '', // skip avatars too — keep payload small
-      uploaderColor: currentUser.avatarColor || '',
-      cloudUrl: v.cloudUrl || ''
-    }));
+    const myVids = getMyVideos().filter(v => v.privacy === 'public' || !v.privacy).map(v => {
+      // Generate Cloudinary thumbnail URL from cloudUrl
+      let cloudThumb = '';
+      if (v.cloudUrl && v.cloudUrl.includes('cloudinary.com')) {
+        cloudThumb = v.cloudUrl
+          .replace('/video/upload/', '/video/upload/w_320,h_180,c_fill,so_1/')
+          .replace(/\.[^.]+$/, '.jpg');
+      }
+      return {
+        id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
+        ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
+        privacy: 'public', _isMyVideo: true,
+        uploaderAvatar: '',
+        uploaderColor: currentUser.avatarColor || '',
+        cloudUrl: v.cloudUrl || '',
+        thumb: cloudThumb
+      };
+    });
+    // Never store base64 data in Firebase — it's too large and causes writes to fail
+    const avaForFirebase = (currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:'))
+      ? currentUser.avatarImg : '';
     const data = {
       name: currentUser.name,
-      ava: currentUser.avatarImg || '',
+      ava: avaForFirebase,
       avatarColor: currentUser.avatarColor || 'linear-gradient(135deg,#3ea6ff,#1a73e8)',
       updatedAt: Date.now(),
       videos: myVids
