@@ -1741,10 +1741,10 @@ function renderGrid(list) {
       const card = document.createElement('div');
       card.className = 'vcard';
       card.innerHTML = `
-        <div class="thumb-wrap" style="background:#111;display:flex;align-items:center;justify-content:center">
+        <div class="thumb-wrap">
           ${v.thumb
-            ? `<img src="${v.thumb}" style="width:100%;height:100%;object-fit:cover;display:block" alt="">`
-            : `<svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`}
+            ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+            : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111"><svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`}
           <span class="dur"></span>
         </div>
         <div class="vmeta">
@@ -1826,10 +1826,10 @@ function showMyVideosPage() {
     card.className = 'vcard';
     card.style.cursor = 'pointer';
     card.innerHTML = `
-      <div class="thumb-wrap" style="background:#111;display:flex;align-items:center;justify-content:center">
+      <div class="thumb-wrap">
         ${v.thumb
-          ? `<img src="${v.thumb}" style="width:100%;height:100%;object-fit:cover;display:block" alt="">`
-          : `<svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`}
+          ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+          : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111"><svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`}
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)">
           <svg width="28" height="28" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </div>
@@ -2788,26 +2788,27 @@ async function playMyVideo(id) {
     // 1. Check local videos
     const localMeta = getMyVideos().find(v => v.id === id);
     if (localMeta && localMeta.cloudUrl) return localMeta.cloudUrl;
-    // 2. Check already-loaded sharedVideos
+    // 2. Eagerly refresh sharedChannels so we always have latest data
+    try { await loadSharedChannels(); } catch(e) {}
+    // 3. Check sharedVideos (from all Firebase channels)
     const sharedMeta = sharedVideos.find(v => v.id === id);
     if (sharedMeta && sharedMeta.cloudUrl) return sharedMeta.cloudUrl;
-    // 3. Fetch directly from Firebase flat /videos path
+    // 4. Fetch directly from Firebase flat /videos path
     try {
       const r = await fetch(CW_DB + '/videos/' + id + '.json');
       const vdata = await r.json();
       if (vdata && vdata.cloudUrl) return vdata.cloudUrl;
     } catch(e) {}
-    // 4. Try refreshing all channels
-    try {
-      await loadSharedChannels();
-      const refreshed = sharedVideos.find(v => v.id === id);
-      if (refreshed && refreshed.cloudUrl) return refreshed.cloudUrl;
-    } catch(e) {}
     return null;
   }
 
   // Look up video metadata across ALL accounts, not just the current user
-  const { vid, account } = getVideoMetaById(id);
+  let { vid, account } = getVideoMetaById(id);
+  // If not found locally, try sharedVideos (another user's uploaded video)
+  if (!vid) {
+    const sv = sharedVideos.find(v => v.id === id);
+    if (sv) vid = sv;
+  }
 
   getVideoBlob(id).then(async blob => {
     let url;
@@ -2818,7 +2819,7 @@ async function playMyVideo(id) {
       if (cloudUrl) {
         url = cloudUrl;
       } else {
-        toast("⚠ Video not found in cloud. Ask the uploader to re-upload.");
+        toast("⚠ Video not available — it may not have finished uploading yet. Try again in a moment.");
         return;
       }
     }
@@ -3450,7 +3451,7 @@ function goToChannelPage(chName, avatarEl) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:20px">
         ${sorted.map((v) => {
           if (v._isMyVideo) {
-            const thumb = v.thumb ? `<img src="${v.thumb}" style="width:100%;height:100%;object-fit:cover;display:block" alt="">` : '<div style="width:100%;height:100%;background:#222;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>';
+            const thumb = v.thumb ? `<img src="${v.thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" alt="">` : '<div style="position:absolute;inset:0;background:#222;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>';
             return `<div class="vcard" onclick="playMyVideo('${v.id}')" style="cursor:pointer"><div class="thumb-wrap">${thumb}<span class="dur">${v.dur||''}</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">${v.title}</div><div class="vstats">${v.views||''} ${v.ago?'• '+v.ago:''}</div></div></div></div>`;
           }
           const origIdx = VIDEOS.indexOf(v);
