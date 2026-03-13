@@ -988,23 +988,44 @@ async function syncChannelToShared() {
       // Generate Cloudinary thumbnail URL from cloudUrl
       let cloudThumb = '';
       if (v.cloudUrl && v.cloudUrl.includes('cloudinary.com')) {
+        // Use Cloudinary's eager thumbnail: f_jpg converts video frame to image
         cloudThumb = v.cloudUrl
-          .replace('/video/upload/', '/video/upload/w_320,h_180,c_fill,so_1/')
-          .replace(/\.[^.]+$/, '.jpg');
+          .replace('/video/upload/', '/video/upload/w_320,h_180,c_fill,so_1,f_jpg/')
+          .replace(/\/([^\/]+)$/, (m, fn) => '/' + fn.replace(/\.[^.]+$/, '.jpg'));
       }
       return {
         id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
         ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
         privacy: 'public', _isMyVideo: true,
-        uploaderAvatar: '',
+        uploaderAvatar: (v.uploaderAvatar && !v.uploaderAvatar.startsWith('data:')) ? v.uploaderAvatar : ((currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:')) ? currentUser.avatarImg : ''),
         uploaderColor: currentUser.avatarColor || '',
         cloudUrl: v.cloudUrl || '',
         thumb: cloudThumb
       };
     });
-    // Never store base64 data in Firebase — it's too large and causes writes to fail
-    const avaForFirebase = (currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:'))
+    // Upload avatar to Cloudinary if it's a local base64 (so Firebase gets a real URL)
+    let avaForFirebase = (currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:'))
       ? currentUser.avatarImg : '';
+    if (!avaForFirebase && currentUser.avatarImg && currentUser.avatarImg.startsWith('data:')) {
+      try {
+        const blob = await (await fetch(currentUser.avatarImg)).blob();
+        const fd = new FormData(); fd.append('file', blob); fd.append('upload_preset', 'cosmowatch');
+        const r = await fetch('https://api.cloudinary.com/v1_1/dcy17iamc/image/upload', { method:'POST', body:fd });
+        const rd = await r.json();
+        if (rd.secure_url) {
+          avaForFirebase = rd.secure_url;
+          currentUser.avatarImg = rd.secure_url;
+          localStorage.setItem('cosmowatch_user', JSON.stringify(currentUser));
+        }
+      } catch(e) { console.warn('Avatar upload failed', e); }
+    }
+    // Also update uploaderAvatar on all stored videos with the cloud URL
+    if (avaForFirebase) {
+      const vidsToUpdate = getMyVideos();
+      let changed = false;
+      vidsToUpdate.forEach(v => { if (!v.uploaderAvatar || v.uploaderAvatar.startsWith('data:')) { v.uploaderAvatar = avaForFirebase; changed = true; } });
+      if (changed) saveMyVideos(vidsToUpdate);
+    }
     const data = {
       name: currentUser.name,
       ava: avaForFirebase,
@@ -1023,7 +1044,10 @@ async function syncChannelToShared() {
         await fetch(CW_DB + '/videos/' + v.id + '.json', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cloudUrl: v.cloudUrl, title: v.title, ch: currentUser.name, id: v.id })
+          body: JSON.stringify({ cloudUrl: v.cloudUrl, title: v.title, ch: currentUser.name, id: v.id,
+            uploaderAvatar: v.uploaderAvatar || avaForFirebase || '',
+            uploaderColor: v.uploaderColor || currentUser.avatarColor || '',
+            thumb: v.thumb || '' })
         });
       }
     }
@@ -1042,7 +1066,14 @@ async function loadSharedChannels() {
     sharedChannels.forEach(ch => {
       if (ch.videos && Array.isArray(ch.videos)) {
         ch.videos.forEach(v => {
-          if (!sharedVideos.find(sv => sv.id === v.id)) sharedVideos.push(v);
+          if (!sharedVideos.find(sv => sv.id === v.id)) {
+            // Inject channel avatar into each video so cross-account rendering works
+            sharedVideos.push({
+              ...v,
+              uploaderAvatar: v.uploaderAvatar || ch.ava || '',
+              uploaderColor: v.uploaderColor || ch.avatarColor || 'linear-gradient(135deg,#3ea6ff,#1a73e8)'
+            });
+          }
         });
       }
     });
@@ -1966,9 +1997,19 @@ function subscribeChannel(ch, ava, displayName) {
   // Save channel meta (avatar, name) for sidebar rendering
   const meta = getChMeta();
   if (!meta[ch]) {
-    // Try to find from VIDEOS array
+    // Try to find from VIDEOS array or local accounts
     const vd = VIDEOS.find(v => v.ch === ch);
-    meta[ch] = { ava: ava || (vd ? vd.ava : ''), name: displayName || ch };
+    let resolvedAva = ava || (vd ? vd.ava : '');
+    if (!resolvedAva) {
+      try {
+        const accounts = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]');
+        const accMatch = accounts.find(a => a.name && a.name.toLowerCase() === ch.toLowerCase());
+        if (accMatch && accMatch.avatarImg) resolvedAva = accMatch.avatarImg;
+        if (!resolvedAva && currentUser && currentUser.name.toLowerCase() === ch.toLowerCase() && currentUser.avatarImg)
+          resolvedAva = currentUser.avatarImg;
+      } catch(e) {}
+    }
+    meta[ch] = { ava: resolvedAva, name: displayName || ch };
     saveChMeta(meta);
   }
 
@@ -2229,10 +2270,13 @@ function getAllPublicVideos() {
     for (const acc of accounts) {
       if (acc._id === curId) continue; // skip current, already added
       const vids = JSON.parse(localStorage.getItem('cosmowatch_vids_' + acc._id) || '[]');
-      // Fill in ch from account name if missing
+      // Fill in ch and uploaderAvatar from account record if missing
       const filled = vids.map(v => {
-        if (!v.ch && acc.name) return Object.assign({}, v, { ch: acc.name });
-        return v;
+        const patch = {};
+        if (!v.ch && acc.name) patch.ch = acc.name;
+        if (!v.uploaderAvatar && acc.avatarImg) patch.uploaderAvatar = acc.avatarImg;
+        if (!v.uploaderColor && acc.avatarColor) patch.uploaderColor = acc.avatarColor;
+        return Object.keys(patch).length ? Object.assign({}, v, patch) : v;
       });
       allVideos.push(...filled);
     }
@@ -2785,9 +2829,20 @@ function deleteMyVideo(i) {
 async function playMyVideo(id) {
   // Try to get cloudUrl — check local first, then Firebase directly
   async function getCloudUrl() {
-    // 1. Check local videos
+    // 1. Check current account's videos
     const localMeta = getMyVideos().find(v => v.id === id);
     if (localMeta && localMeta.cloudUrl) return localMeta.cloudUrl;
+    // 1b. Check other local accounts on this browser
+    try {
+      const accounts = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]');
+      const curId = currentUser && currentUser._id;
+      for (const acc of accounts) {
+        if (acc._id === curId) continue;
+        const vids = JSON.parse(localStorage.getItem('cosmowatch_vids_' + acc._id) || '[]');
+        const found = vids.find(v => v.id === id);
+        if (found && found.cloudUrl) return found.cloudUrl;
+      }
+    } catch(e) {}
     // 2. Eagerly refresh sharedChannels so we always have latest data
     try { await loadSharedChannels(); } catch(e) {}
     // 3. Check sharedVideos (from all Firebase channels)
@@ -2808,6 +2863,14 @@ async function playMyVideo(id) {
   if (!vid) {
     const sv = sharedVideos.find(v => v.id === id);
     if (sv) vid = sv;
+  }
+  // If still not found, fetch directly from Firebase flat /videos path
+  if (!vid) {
+    try {
+      const r = await fetch(CW_DB + '/videos/' + id + '.json');
+      const vd = await r.json();
+      if (vd && vd.id) vid = vd;
+    } catch(e) {}
   }
 
   getVideoBlob(id).then(async blob => {
@@ -3396,15 +3459,23 @@ function goToChannelPage(chName, avatarEl) {
 
   const sample = chVids[0] || {};
 
-  // Avatar: own channel > local video > Firebase shared channels > fallback
+  // Avatar: own channel > local video > local account record > Firebase > fallback
   let ava = '';
   if (_ownChannel && currentUser && currentUser.avatarImg) {
     ava = currentUser.avatarImg;
   } else if (sample.ava) {
     ava = sample.ava;
   } else {
-    const shared = sharedChannels.find(sc => sc.name && sc.name.toLowerCase() === chName.toLowerCase());
-    if (shared) ava = shared.ava || '';
+    // Check local accounts list for this channel's avatar
+    try {
+      const accounts = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]');
+      const accMatch = accounts.find(a => a.name && a.name.toLowerCase() === chName.toLowerCase());
+      if (accMatch && accMatch.avatarImg) ava = accMatch.avatarImg;
+    } catch(e) {}
+    if (!ava) {
+      const shared = sharedChannels.find(sc => sc.name && sc.name.toLowerCase() === chName.toLowerCase());
+      if (shared) ava = shared.ava || '';
+    }
   }
   const subs = (_ownChannel && currentUser) ? (getMySubscribers ? getMySubscribers().length + ' subscriber' + (getMySubscribers().length !== 1 ? 's' : '') : '0 subscribers') : (sample.subs || '0 subscribers');
 
@@ -3602,6 +3673,21 @@ function _runSearch(q) {
       else if (!channelMap[key].ava && ava) channelMap[key].ava = ava;
       channelMap[key].videos.push({ ...v, _isMyVideo: true });
     });
+  // Resolve missing avatars from local account records
+  try {
+    const accounts = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]');
+    accounts.forEach(acc => {
+      if (!acc.name || !acc.avatarImg) return;
+      const key = acc.name.toLowerCase();
+      if (channelMap[key] && !channelMap[key].ava) channelMap[key].ava = acc.avatarImg;
+    });
+    // Also check currentUser
+    if (currentUser && currentUser.avatarImg) {
+      const key = currentUser.name.toLowerCase();
+      if (channelMap[key] && !channelMap[key].ava) channelMap[key].ava = currentUser.avatarImg;
+    }
+  } catch(e) {}
+
   // Also add channels from Firebase shared channels list (for avatar resolution)
   sharedChannels.forEach(sc => {
     if (!sc.name) return;
