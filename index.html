@@ -1219,11 +1219,12 @@ function openShort(s) {
   document.getElementById('ptitle').textContent = s.title;
   document.getElementById('pviews').textContent = (s.views || '') + ' \u2022 ' + (s.ago || '');
 
-  // Look up channel avatar & info from VIDEOS array
+  // Look up channel avatar & info from VIDEOS or SHORTS array
   var chVid = VIDEOS.find(function(v) { return v.ch === s.ch; });
+  var chShort = SHORTS.find(function(sh) { return sh.ch === s.ch && sh.ava; });
   var ava = document.getElementById('pava');
-  ava.src = chVid ? chVid.ava : '';
-  ava.onerror = function() { ava.src = 'https://picsum.photos/seed/' + encodeURIComponent(s.ch) + '/48/48'; };
+  ava.src = (chVid && chVid.ava) ? chVid.ava : (chShort ? chShort.ava : '');
+  ava.onerror = function() { ava.style.display='none'; };
 
   document.getElementById('pch').textContent = s.ch;
   document.getElementById('psubs').textContent = chVid ? (chVid.subs || '') : '';
@@ -1916,7 +1917,7 @@ function openVideo(idx, startSec) {
 
   const ava = document.getElementById('pava');
   ava.src = v.ava;
-  ava.onerror = () => { ava.src = `https://picsum.photos/seed/${encodeURIComponent(v.ch)}/48/48`; };
+  ava.onerror = () => { ava.style.display = 'none'; };
 
   document.getElementById('pch').textContent = v.ch;
   document.getElementById('psubs').textContent = v.subs;
@@ -3036,9 +3037,20 @@ function mvcLoadYT(ytId, startSec) {
   if (poster) poster.style.display = 'none';
   if (frame) {
     frame.style.display = 'block';
-    var url = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&vq=hd720&iv_load_policy=3&cc_load_policy=0&disablekb=0&fs=1&hl=en&color=red';
+    frame.innerHTML = '';
+    var url = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&vq=hd720&iv_load_policy=3&cc_load_policy=0&disablekb=0&fs=1&hl=en&color=red&widget_referrer=' + encodeURIComponent(location.href);
     if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
-    frame.innerHTML = '<iframe id="yt-api-frame" src="' + url + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;min-width:480px"></iframe>';
+    // Create iframe via DOM (not innerHTML) so width/height HTML attributes are set —
+    // YouTube reads these attributes (not CSS) to decide desktop vs mobile UI
+    var iframeEl = document.createElement('iframe');
+    iframeEl.id = 'yt-api-frame';
+    iframeEl.src = url;
+    iframeEl.width = '1280';
+    iframeEl.height = '720';
+    iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframeEl.allowFullscreen = true;
+    iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+    frame.appendChild(iframeEl);
     _ytCurrentIdx = currentVideoIdx;
     _ytCurrentTime = 0;
     // Initialize the YouTube postMessage API listener
@@ -3525,7 +3537,7 @@ function goToChannelPage(chName, avatarEl) {
       <!-- Channel info bar -->
       <div style="display:flex;align-items:flex-end;gap:20px;padding:0 20px 20px;margin-top:20px;margin-bottom:24px">
         <div style="width:80px;height:80px;border-radius:50%;border:3px solid var(--bg);flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#3ea6ff,#1a73e8);display:flex;align-items:center;justify-content:center;position:relative;z-index:2">
-          ${ava ? `<img src="${ava}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\"font-size:28px;font-weight:800;color:#fff\">'+chName[0]+'</span>'">` : `<span style="font-size:28px;font-weight:800;color:#fff">${chName[0]}</span>`}
+          ${ava ? `<img src="${ava}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display='none'">` : `<span style="font-size:28px;font-weight:800;color:#fff">${chName[0]}</span>`}
         </div>
         <div style="flex:1;padding-bottom:4px">
           <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:var(--text)">${chName}</div>
@@ -3546,7 +3558,7 @@ function goToChannelPage(chName, avatarEl) {
             return `<div class="vcard" onclick="playMyVideo('${v.id}')" style="cursor:pointer"><div class="thumb-wrap">${thumb}<span class="dur">${v.dur||''}</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">${v.title}</div><div class="vstats">${v.views||''} ${v.ago?'• '+v.ago:''}</div></div></div></div>`;
           }
           if (v._isShort) {
-            return '<div class="vcard" onclick="window.open(\'https://www.youtube.com/shorts/'+v.id+'\',\'_blank\')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg" onerror="this.src=&quot;https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg&quot;" alt="" loading="lazy"><span class="dur">'+v.dur+'</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">'+v.title+'</div><div class="vstats">'+v.views+' &bull; '+(v.ago||'')+'</div></div></div></div>';
+            return '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);else window.open(\'https://www.youtube.com/shorts/' + v.id + '\',\'_blank\')})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=&quot;https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg&quot;" alt="" loading="lazy"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ago||'') + '</div></div></div></div>';
           }
           const origIdx = VIDEOS.indexOf(v);
           return '<div class="vcard" onclick="openVideo('+origIdx+')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg" onerror="this.src=&quot;https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg&quot;" alt="" loading="lazy"><span class="dur">'+v.dur+'</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">'+v.title+'</div><div class="vstats">'+v.views+' &bull; '+v.ago+'</div></div></div></div>';
@@ -3638,8 +3650,10 @@ function _buildDropdown(q) {
     item.addEventListener('mousedown', () => {
       document.getElementById('searchInput').value = v.title;
       hideSearchDropdown();
-      if (v._isShort || SHORTS.find(s => s.id === v.id)) {
-        window.open(`https://www.youtube.com/shorts/${v.id}`, '_blank');
+      const shortData = SHORTS.find(s => s.id === v.id);
+      if (shortData) {
+        hideSearchDropdown();
+        openShort(shortData);
       } else {
         doSearch();
       }
