@@ -722,8 +722,9 @@ let liked = false, disliked = false, subscribed = false, saved = false;
 let autoplayEnabled = true;
 let currentVideoId  = '';
 let currentVideoIdx = -1;
-let watchHistory    = [];   // video indexes
-let videoTimestamps = {};   // idx -> seconds (resume position)
+let currentShortChannel = null;
+let watchHistory    = JSON.parse(localStorage.getItem('cosmowatch_history') || '[]');
+let videoTimestamps = JSON.parse(localStorage.getItem('cosmowatch_timestamps') || '{}');
 let _ytCurrentTime  = 0;
 let _ytCurrentIdx   = null;
 let likedVideos     = [];   // video indexes
@@ -737,6 +738,7 @@ window.addEventListener('message', function(e) {
       _ytCurrentTime = d.info.currentTime;
       if (_ytCurrentIdx !== null && _ytCurrentTime > 5) {
         videoTimestamps[_ytCurrentIdx] = Math.floor(_ytCurrentTime);
+        try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(e) {}
       }
     }
   } catch(ex) {}
@@ -1240,7 +1242,9 @@ function openShort(s) {
   document.getElementById('dislikeAct').classList.remove('liked');
   document.getElementById('saveAct').innerHTML = svgBookmark() + ' Save';
 
-  subscribed = chVid ? isSubscribed(chVid.ch) : false;
+  currentShortChannel = s.ch;
+  currentVideoIdx = null;
+  subscribed = isSubscribed(s.ch);
   var subBtnEl = document.getElementById('subBtn');
   subBtnEl.textContent = subscribed ? 'Subscribed \u2713' : 'Subscribe';
   subBtnEl.classList.toggle('subd', subscribed);
@@ -1737,6 +1741,7 @@ function stopPlayer() {
   // Save YT playback position for history resume
   if (_ytCurrentIdx !== null && _ytCurrentTime > 5) {
     videoTimestamps[_ytCurrentIdx] = Math.floor(_ytCurrentTime);
+    try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(e) {}
   }
   _ytCurrentIdx = null;
   var vid = document.getElementById('my-vid-el');
@@ -1897,8 +1902,10 @@ function openVideo(idx, startSec) {
   const v = VIDEOS[idx];
   currentVideoId  = v.id;
   currentVideoIdx = idx;
+  currentShortChannel = null;
   // Track watch history (newest first, no duplicates)
   watchHistory = [idx, ...watchHistory.filter(i => i !== idx)].slice(0, 20);
+  try { localStorage.setItem('cosmowatch_history', JSON.stringify(watchHistory)); } catch(e) {}
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('special-page').style.display = 'none';
   document.getElementById('player-page').classList.add('on');
@@ -2094,9 +2101,9 @@ function unsubscribeChannel(ch, displayName) {
 
 function toggleSub() {
   // This is the subscribe button on the video player page
-  const v = VIDEOS[currentVideoIdx];
-  if (!v) return;
-  const ch = v.ch;
+  // currentShortChannel is set when a Short is playing; currentVideoIdx for regular videos
+  const ch = currentShortChannel || (VIDEOS[currentVideoIdx] && VIDEOS[currentVideoIdx].ch);
+  if (!ch) return;
   const btn = document.getElementById('subBtn');
 
   if (isSubscribed(ch)) {
