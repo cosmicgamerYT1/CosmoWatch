@@ -223,7 +223,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
 /* PLAYER PAGE */
 #player-page{display:none}
 #player-page.on{display:grid;grid-template-columns:1fr 400px;gap:24px}#qpanel{min-height:200px}
-.video-frame{width:100%;padding-top:56.25%;background:#000;border-radius:12px;position:relative}.video-frame>video,.video-frame #mvc-yt-player-el iframe,.video-frame #mvc-yt-poster{border-radius:12px}
+.video-frame{width:100%;min-width:480px;padding-top:56.25%;background:#000;border-radius:12px;position:relative}.video-frame>video,.video-frame #mvc-yt-player-el iframe,.video-frame #mvc-yt-poster{border-radius:12px}
 .video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
 #my-vid-controls:hover{opacity:1!important}
 #mvc-quality-menu:hover{display:block!important}
@@ -3032,9 +3032,9 @@ function mvcLoadYT(ytId, startSec) {
   if (poster) poster.style.display = 'none';
   if (frame) {
     frame.style.display = 'block';
-    var url = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1';
+    var url = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&vq=hd720&iv_load_policy=3&cc_load_policy=0&disablekb=0&fs=1&hl=en&color=red';
     if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
-    frame.innerHTML = '<iframe id="yt-api-frame" src="' + url + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>';
+    frame.innerHTML = '<iframe id="yt-api-frame" src="' + url + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none;min-width:480px"></iframe>';
     _ytCurrentIdx = currentVideoIdx;
     _ytCurrentTime = 0;
     // Initialize the YouTube postMessage API listener
