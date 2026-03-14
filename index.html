@@ -1174,7 +1174,7 @@ function showSpecialPage(title, videos) {
     } else if (v._isMyVideo) {
       // Uploaded video card
       const thumb = v.thumb
-        ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+        ? `<img src="${v.thumb}" onerror="this.style.display=\'none\'" alt="">`
         : `<div style="position:absolute;inset:0;background:#111;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`;
       const avaHtml = v.uploaderAvatar
         ? `<img class="ch-ava" src="${v.uploaderAvatar}" onerror="this.style.display='none'" alt="">`
@@ -1909,7 +1909,7 @@ function renderGrid(list) {
       card.innerHTML = `
         <div class="thumb-wrap">
           ${v.thumb
-            ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+            ? `<img src="${v.thumb}" onerror="this.style.display=\'none\'" alt="">`
             : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111"><svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`}
           <span class="dur">${v.dur||''}</span>
         </div>
@@ -1994,7 +1994,7 @@ function showMyVideosPage() {
     card.innerHTML = `
       <div class="thumb-wrap">
         ${v.thumb
-          ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+          ? `<img src="${v.thumb}" onerror="this.style.display=\'none\'" alt="">`
           : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111"><svg width="40" height="40" fill="#444" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`}
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)">
           <svg width="28" height="28" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -3710,22 +3710,38 @@ function goToChannelPage(chName, avatarEl) {
           ${SHORTS.some(s => s.ch === chName) ? `<button id="ch-shorts-btn" onclick="toggleChPageShorts()" style="background:var(--hover);border:1.5px solid var(--border);color:var(--text);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .15s;margin-bottom:4px;display:flex;align-items:center;gap:5px"><svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Include Shorts</button>` : ''}
         </div>
       </div>
-      <!-- Videos grid — newest first -->
-      <div style="font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">${sorted.length > 0 ? 'Videos' : 'No videos found'}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:20px">
-        ${sorted.map((v) => {
-          if (v._isMyVideo) {
-            const thumb = v.thumb ? `<img src="${v.thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" alt="">` : '<div style="position:absolute;inset:0;background:#222;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>';
-            return `<div class="vcard" onclick="playMyVideo('${v.id}')" style="cursor:pointer"><div class="thumb-wrap">${thumb}<span class="dur">${v.dur||''}</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">${v.title}</div><div class="vstats">${v.views||''} ${v.ago?'• '+v.ago:''}</div></div></div></div>`;
-          }
-          if (v._isShort) {
-            return '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);else window.open(\'https://www.youtube.com/shorts/' + v.id + '\',\'_blank\')})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=&quot;https://img.youtube.com/vi/' + v.id + '/mqdefault.jpg&quot;" alt="" loading="lazy"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ago||'') + '</div></div></div></div>';
-          }
-          const origIdx = VIDEOS.indexOf(v);
-          return '<div class="vcard" onclick="openVideo('+origIdx+')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg" onerror="this.src=&quot;https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg&quot;" alt="" loading="lazy"><span class="dur">'+v.dur+'</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">'+v.title+'</div><div class="vstats">'+v.views+' &bull; '+v.ago+'</div></div></div></div>';
-        }).join('')}
-      </div>
+      <!-- Videos and Shorts rendered separately below -->
+      <div id="ch-vids-section"></div>
     </div>`;
+  // Populate videos + shorts separately (avoids nested template literal issues)
+  (function() {
+    const regularVids = sorted.filter(v => !v._isShort);
+    const shortVids   = sorted.filter(v => v._isShort);
+    const sec = document.getElementById('ch-vids-section');
+    if (!sec) return;
+    let html = '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">' + (regularVids.length > 0 ? 'Videos' : 'No videos found') + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:20px">';
+    regularVids.forEach(function(v) {
+      if (v._isMyVideo) {
+        const thumb = v.thumb ? '<img src="' + v.thumb + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'" alt="">' : '<div style="position:absolute;inset:0;background:#222;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>';
+        html += '<div class="vcard" onclick="playMyVideo(\'+v.id+\')" style="cursor:pointer"><div class="thumb-wrap">' + thumb + '<span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + (v.ago?' &bull; '+v.ago:'') + '</div></div></div></div>';
+      } else {
+        const origIdx = VIDEOS.indexOf(v);
+        html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + v.ago + '</div></div></div></div>';
+      }
+    });
+    html += '</div>';
+    if (shortVids.length > 0) {
+      html += '<div style="border-top:1px solid var(--border);margin-top:32px;padding-top:28px">';
+      html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">Shorts</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">';
+      shortVids.forEach(function(v) {
+        html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'+v.id+\'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
+      });
+      html += '</div></div>';
+    }
+    sec.innerHTML = html;
+  })();
 
   // Style the Include Shorts button to reflect current toggle state
   requestAnimationFrame(() => {
