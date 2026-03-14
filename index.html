@@ -1469,8 +1469,6 @@ function showChannelEditor() {
   const init = u.name.charAt(0).toUpperCase();
   const hasImg = !!u.avatarImg;
 
-  if (_chPageName !== chName) _chPageShowShorts = false;
-  _chPageName = chName;
   document.getElementById('special-content').innerHTML = `
     <div style="max-width:600px">
 
@@ -3618,6 +3616,10 @@ function goToChannelPage(chName, avatarEl) {
   sp.style.display = 'block';
   document.getElementById('special-title').textContent = '';
 
+  // Reset shorts toggle when switching to a different channel
+  if (_chPageName !== chName) _chPageShowShorts = false;
+  _chPageName = chName;
+
   // Find channel info from VIDEOS + SHORTS + ALL local accounts' uploaded videos
   let chVids = VIDEOS.filter(v => v.ch === chName);
   const shortsByChannel = SHORTS.filter(s => s.ch === chName).map(s => ({ ...s, _isShort: true }));
@@ -3636,7 +3638,7 @@ function goToChannelPage(chName, avatarEl) {
   const shortsForPage = _chPageShowShorts
     ? SHORTS.filter(s => s.ch === chName).map(s => ({ ...s, _isShort: true }))
     : [];
-  chVids = [...chVids, ...shortsByChannel, ...uploadedByChannel, ...sharedByChannel, ...shortsForPage];
+  chVids = [...chVids, ...uploadedByChannel, ...sharedByChannel, ...shortsForPage];
 
   const sample = chVids[0] || {};
 
