@@ -241,7 +241,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
 .act.liked{background:var(--red);color:#fff}
 .ch-row{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--border)}
 .ch-ava-lg{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--pill);flex-shrink:0}
-.ch-name{font-weight:600;font-size:15px}
+.ch-name{font-weight:600;font-size:15px;transition:color .15s}.ch-name:hover{color:var(--blue)}
 .ch-subs{font-size:13px;color:var(--muted)}
 .sub-btn{
   margin-left:auto;background:var(--text);color:var(--bg);border:none;border-radius:20px;
@@ -1273,10 +1273,14 @@ function openShort(s) {
   var chVid = VIDEOS.find(function(v) { return v.ch === s.ch; });
   var chShort = SHORTS.find(function(sh) { return sh.ch === s.ch && sh.ava; });
   var ava = document.getElementById('pava');
+  ava.style.display = 'block';
   ava.src = (chVid && chVid.ava) ? chVid.ava : (chShort ? chShort.ava : '');
   ava.onerror = function() { ava.style.display='none'; };
 
-  document.getElementById('pch').textContent = s.ch;
+  const pchShortEl = document.getElementById('pch');
+  pchShortEl.textContent = s.ch;
+  pchShortEl.style.cursor = 'pointer';
+  pchShortEl.onclick = () => goToChannelPage(s.ch, null);
   document.getElementById('psubs').textContent = chVid ? (chVid.subs || '') : '';
   document.getElementById('pdesc').textContent = s.title;
   document.getElementById('pdesc').style.webkitLineClamp = '3';
@@ -2043,10 +2047,14 @@ function openVideo(idx, startSec) {
   document.getElementById('pviews').textContent = `${v.views} \u2022 ${v.ago}`;
 
   const ava = document.getElementById('pava');
-  ava.src = v.ava;
+  ava.style.display = 'block';
+  ava.src = v.ava || '';
   ava.onerror = () => { ava.style.display = 'none'; };
 
-  document.getElementById('pch').textContent = v.ch;
+  const pchEl = document.getElementById('pch');
+  pchEl.textContent = v.ch;
+  pchEl.style.cursor = 'pointer';
+  pchEl.onclick = () => goToChannelPage(v.ch, null);
   document.getElementById('psubs').textContent = v.subs;
   document.getElementById('pdesc').textContent = v.desc;
   document.getElementById('pdesc').style.webkitLineClamp = '3';
