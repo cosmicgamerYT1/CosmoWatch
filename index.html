@@ -1216,6 +1216,8 @@ function showShortsPage() {
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
   document.getElementById('special-title').textContent = 'Shorts';
+  const _ssb = document.getElementById('subs-shorts-btn');
+  if (_ssb) _ssb.style.display = 'none';
   const content = document.getElementById('special-content');
   content.innerHTML = '';
 
@@ -1304,7 +1306,8 @@ function showWatchHistory() {
   stopPlayer(); document.getElementById('player-page').classList.remove('on');
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
-  document.getElementById('special-title').textContent = 'Watch History';
+  document.getElementById('special-title').textContent = 'Watch History'
+  const _sb = document.getElementById('subs-shorts-btn'); if (_sb) _sb.style.display = 'none';;
   const content = document.getElementById('special-content');
   if (!watchHistory.length) {
     content.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
@@ -1466,6 +1469,7 @@ function showChannelEditor() {
   document.getElementById('special-title').textContent = '';
 
   const u = currentUser;
+  const _sb = document.getElementById('subs-shorts-btn'); if (_sb) _sb.style.display = 'none';
   const init = u.name.charAt(0).toUpperCase();
   const hasImg = !!u.avatarImg;
 
@@ -3616,7 +3620,8 @@ function goToChannelPage(chName, avatarEl) {
   sp.style.display = 'block';
   document.getElementById('special-title').textContent = '';
 
-  // Reset shorts toggle when switching to a different channel
+  // Reset shorts toggle
+  const _sb = document.getElementById('subs-shorts-btn'); if (_sb) _sb.style.display = 'none'; // hide on channel page (shown by ch-shorts-btn instead)
   if (_chPageName !== chName) _chPageShowShorts = false;
   _chPageName = chName;
 
