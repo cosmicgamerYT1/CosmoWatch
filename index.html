@@ -1143,23 +1143,43 @@ function showSpecialPage(title, videos) {
   }
   content.innerHTML = '';
   videos.forEach(v => {
-    const origIdx = VIDEOS.indexOf(v);
     const card = document.createElement('div');
     card.className = 'vcard';
-    card.innerHTML = `
-      <div class="thumb-wrap">
-        <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'" alt="" loading="lazy">
-        <span class="dur">${v.dur}</span>
-      </div>
-      <div class="vmeta">
-        <img class="ch-ava" src="${v.ava}" onerror="this.style.display='none'" alt="" onclick="event.stopPropagation();goToChannelPage('${v.ch.replace(/'/g,'\\\'')}',this)" style="cursor:pointer" title="View channel">
-        <div class="vinfo">
-          <div class="vtitle">${v.title}</div>
-          <div class="vch">${v.ch}</div>
-          <div class="vstats">${v.views} &bull; ${v.ago}</div>
+    if (v._isMyVideo) {
+      // Uploaded video card
+      const thumb = v.thumb
+        ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
+        : `<div style="position:absolute;inset:0;background:#111;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>`;
+      const avaHtml = v.uploaderAvatar
+        ? `<img class="ch-ava" src="${v.uploaderAvatar}" onerror="this.style.display='none'" alt="">`
+        : `<div class="ch-ava" style="background:${v.uploaderColor||'linear-gradient(135deg,#3ea6ff,#1a73e8)'};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff">${(v.ch||'?')[0].toUpperCase()}</div>`;
+      card.innerHTML = `
+        <div class="thumb-wrap">${thumb}<span class="dur">${v.dur||''}</span></div>
+        <div class="vmeta">${avaHtml}
+          <div class="vinfo">
+            <div class="vtitle">${v.title}</div>
+            <div class="vch">${v.ch||''}</div>
+            <div class="vstats">${v.views||''} ${v.ago?'&bull; '+v.ago:''}</div>
+          </div>
+        </div>`;
+      card.addEventListener('click', () => playMyVideo(v.id));
+    } else {
+      const origIdx = VIDEOS.indexOf(v);
+      card.innerHTML = `
+        <div class="thumb-wrap">
+          <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'" alt="" loading="lazy">
+          <span class="dur">${v.dur}</span>
         </div>
-      </div>`;
-    card.addEventListener('click', () => openVideo(origIdx));
+        <div class="vmeta">
+          <img class="ch-ava" src="${v.ava}" onerror="this.style.display='none'" alt="" onclick="event.stopPropagation();goToChannelPage('${v.ch.replace(/'/g,'\\\'')}',this)" style="cursor:pointer" title="View channel">
+          <div class="vinfo">
+            <div class="vtitle">${v.title}</div>
+            <div class="vch">${v.ch}</div>
+            <div class="vstats">${v.views} &bull; ${v.ago}</div>
+          </div>
+        </div>`;
+      card.addEventListener('click', () => openVideo(origIdx));
+    }
     content.appendChild(card);
   });
 }
@@ -1312,8 +1332,29 @@ function sideNav(el, page) {
       goHome(); break;
     case 'shorts':
       showShortsPage(); break;
-    case 'subscriptions':
-      showSpecialPage('Subscriptions', VIDEOS.filter(v => ['CosmicGamer','Veritasium','Fireship','3Blue1Brown','Ed Sheeran'].includes(v.ch))); break;
+    case 'subscriptions': {
+      const subs = getSubscriptions();
+      if (!subs.length) {
+        showSpecialPage('Subscriptions', []);
+        toast('You haven\'t subscribed to any channels yet');
+        break;
+      }
+      // Gather videos from all subscribed channels — VIDEOS + uploaded public videos
+      const subsLower = subs.map(s => s.toLowerCase());
+      const subVids = VIDEOS.filter(v => subsLower.includes(v.ch.toLowerCase()));
+      const allPub = getAllPublicVideos().filter(v =>
+        v.ch && subsLower.includes(v.ch.toLowerCase())
+      ).map(v => ({ ...v, _isMyVideo: true }));
+      // Merge, deduplicate by id, newest first
+      const seen = new Set();
+      const merged = [...allPub, ...subVids].filter(v => {
+        if (seen.has(v.id)) return false;
+        seen.add(v.id);
+        return true;
+      });
+      showSpecialPage('Subscriptions', merged);
+      break;
+    }
     case 'channel':
       if (!currentUser) { toast('Sign in to see your channel'); openModal(); return; }
       showChannelEditor();
