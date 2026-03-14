@@ -484,14 +484,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
     <a class="sitem" href="#" onclick="sideNav(this,'liked');return false"><svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>Liked videos</a>
     <div class="sdiv"></div>
     <div class="slabel">Subscriptions</div>
-    <a class="sitem" id="cg-sidebar-item" data-channel="CosmicGamer" href="#" onclick="filterByChannel(this,'CosmicGamer');return false" oncontextmenu="openCtxMenu(event,'CosmicGamer');return false" style="display:none">
+    <a class="sitem" id="cg-sidebar-item" data-channel="CosmicGamer" href="#" onclick="goToChannelPage('CosmicGamer',null);return false" oncontextmenu="openCtxMenu(event,'CosmicGamer');return false" style="display:none">
       <div id="cg-sidebar-ava" style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#3ea6ff,#9334e6);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;color:#fff;overflow:hidden">CG</div>
       <span id="cg-sidebar-name">CosmicGamer</span>
     </a>
-    <a class="sitem" data-channel="Veritasium" href="#" onclick="filterByChannel(this,'Veritasium');return false" oncontextmenu="openCtxMenu(event,'Veritasium');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_lkH37D712tiyphnu0Id0D5MwwQ7IRuwgQLVD05iMXlDWO-kDHut3uI4MGB74ujqHSBW_ONvWOQ=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>V</span>')" alt="">Veritasium</a>
-    <a class="sitem" data-channel="Fireship" href="#" onclick="filterByChannel(this,'Fireship');return false" oncontextmenu="openCtxMenu(event,'Fireship');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_mKPcokKBpW2lkFJLvEy3MXBQ1Lk1JzSrKFKJ7UA=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>F</span>')" alt="">Fireship</a>
-    <a class="sitem" data-channel="3Blue1Brown" href="#" onclick="filterByChannel(this,'3Blue1Brown');return false" oncontextmenu="openCtxMenu(event,'3Blue1Brown');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_mx-DumKUHVBAS3AepqnSNuFxgWBWUNq6xrHkh6=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>3</span>')" alt="">3Blue1Brown</a>
-    <a class="sitem" data-channel="Ed Sheeran" href="#" onclick="filterByChannel(this,'Ed Sheeran');return false" oncontextmenu="openCtxMenu(event,'Ed Sheeran');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_lXNt7VmopvvzlLWQcvvHIz9YEHKB3mmWjQ0COXSA=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>E</span>')" alt="">Ed Sheeran</a>
+    <a class="sitem" data-channel="Veritasium" href="#" onclick="goToChannelPage('Veritasium',null);return false" oncontextmenu="openCtxMenu(event,'Veritasium');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_lkH37D712tiyphnu0Id0D5MwwQ7IRuwgQLVD05iMXlDWO-kDHut3uI4MGB74ujqHSBW_ONvWOQ=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>V</span>')" alt="">Veritasium</a>
+    <a class="sitem" data-channel="Fireship" href="#" onclick="goToChannelPage('Fireship',null);return false" oncontextmenu="openCtxMenu(event,'Fireship');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_mKPcokKBpW2lkFJLvEy3MXBQ1Lk1JzSrKFKJ7UA=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>F</span>')" alt="">Fireship</a>
+    <a class="sitem" data-channel="3Blue1Brown" href="#" onclick="goToChannelPage('3Blue1Brown',null);return false" oncontextmenu="openCtxMenu(event,'3Blue1Brown');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_mx-DumKUHVBAS3AepqnSNuFxgWBWUNq6xrHkh6=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>3</span>')" alt="">3Blue1Brown</a>
+    <a class="sitem" data-channel="Ed Sheeran" href="#" onclick="goToChannelPage('Ed Sheeran',null);return false" oncontextmenu="openCtxMenu(event,'Ed Sheeran');return false" style="display:none"><img src="https://yt3.googleusercontent.com/ytc/AIdro_lXNt7VmopvvzlLWQcvvHIz9YEHKB3mmWjQ0COXSA=s68" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\'width:24px;height:24px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0\'>E</span>')" alt="">Ed Sheeran</a>
     <div class="sdiv"></div>
     <div class="slabel">Explore</div>
     <a class="sitem" href="#" onclick="sideNav(this,'trending');return false"><svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>Trending</a>
@@ -623,6 +623,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
         </button>
         <h2 id="special-title" style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:700"></h2>
+        <button id="subs-shorts-btn" onclick="toggleSubsShorts()" style="display:none;margin-left:auto;background:var(--hover);border:1.5px solid var(--border);color:var(--text);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="margin-right:5px;vertical-align:-2px"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Include Shorts
+        </button>
       </div>
       <div class="vgrid" id="special-content"></div>
     </div>
@@ -724,6 +727,9 @@ let currentVideoId  = '';
 let currentVideoIdx = -1;
 let currentShortChannel = null;
 let _currentIsShort = false;
+let _subsShowShorts = false;
+let _chPageShowShorts = false;
+let _chPageName = '';
 let watchHistory    = JSON.parse(localStorage.getItem('cosmowatch_history') || '[]');
 let videoTimestamps = JSON.parse(localStorage.getItem('cosmowatch_timestamps') || '{}');
 let _ytCurrentTime  = 0;
@@ -1132,6 +1138,8 @@ function showSpecialPage(title, videos) {
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
   document.getElementById('special-title').textContent = title;
+  const _sBtn = document.getElementById('subs-shorts-btn');
+  if (_sBtn && title !== 'Subscriptions') _sBtn.style.display = 'none';
   const content = document.getElementById('special-content');
   if (!videos || videos.length === 0) {
     content.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
@@ -1145,7 +1153,25 @@ function showSpecialPage(title, videos) {
   videos.forEach(v => {
     const card = document.createElement('div');
     card.className = 'vcard';
-    if (v._isMyVideo) {
+    if (v._isShort) {
+      // Short video card - clicks open in CosmoWatch player
+      card.innerHTML = `
+        <div class="thumb-wrap">
+          <img src="https://img.youtube.com/vi/${v.id}/mqdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'" alt="" loading="lazy">
+          <span class="dur">${v.dur||''}</span>
+          <span style="position:absolute;top:6px;left:7px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px">SHORT</span>
+        </div>
+        <div class="vmeta">
+          <img class="ch-ava" src="${v.ava||''}" onerror="this.style.display='none'" alt="">
+          <div class="vinfo">
+            <div class="vtitle">${v.title}</div>
+            <div class="vch">${v.ch}</div>
+            <div class="vstats">${v.views||''} ${v.ago?'&bull; '+v.ago:''}</div>
+          </div>
+        </div>`;
+      const _shortRef = v;
+      card.addEventListener('click', () => openShort(_shortRef));
+    } else if (v._isMyVideo) {
       // Uploaded video card
       const thumb = v.thumb
         ? `<img src="${v.thumb}" onerror="this.style.display='none'" alt="">`
@@ -1324,6 +1350,73 @@ function showWatchHistory() {
   });
 }
 
+function buildSubsFeed() {
+  const subs = getSubscriptions();
+  const btn = document.getElementById('subs-shorts-btn');
+  if (!subs.length) {
+    showSpecialPage('Subscriptions', []);
+    if (btn) btn.style.display = 'none';
+    toast('You haven\'t subscribed to any channels yet');
+    return;
+  }
+  const subsLower = subs.map(s => s.toLowerCase());
+  const subVids = VIDEOS.filter(v => subsLower.includes(v.ch.toLowerCase()));
+  const allPub = getAllPublicVideos().filter(v =>
+    v.ch && subsLower.includes(v.ch.toLowerCase())
+  ).map(v => ({ ...v, _isMyVideo: true }));
+  // Optionally include Shorts
+  const subShorts = _subsShowShorts
+    ? SHORTS.filter(s => subsLower.includes(s.ch.toLowerCase())).map(s => ({ ...s, _isShort: true }))
+    : [];
+  const seen = new Set();
+  const merged = [...allPub, ...subVids, ...subShorts].filter(v => {
+    if (seen.has(v.id)) return false;
+    seen.add(v.id);
+    return true;
+  });
+  function agoToNum(v) {
+    if (v.uploadedAt) return -v.uploadedAt;
+    const s = (v.ago || '').toLowerCase();
+    const n = parseFloat(s) || 1;
+    if (s.includes('hour'))   return n / 24;
+    if (s.includes('day'))    return n;
+    if (s.includes('week'))   return n * 7;
+    if (s.includes('month'))  return n * 30;
+    if (s.includes('year'))   return n * 365;
+    if (s.includes('recent')) return 0;
+    return 9999;
+  }
+  merged.sort((a, b) => agoToNum(a) - agoToNum(b));
+  showSpecialPage('Subscriptions', merged);
+  // Show/style the toggle button
+  if (btn) {
+    btn.style.display = 'flex';
+    btn.style.alignItems = 'center';
+    if (_subsShowShorts) {
+      btn.style.background = 'var(--blue)';
+      btn.style.color = '#000';
+      btn.style.borderColor = 'var(--blue)';
+      btn.innerHTML = '<svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="margin-right:5px;vertical-align:-2px"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Shorts On';
+    } else {
+      btn.style.background = 'var(--hover)';
+      btn.style.color = 'var(--text)';
+      btn.style.borderColor = 'var(--border)';
+      btn.innerHTML = '<svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="margin-right:5px;vertical-align:-2px"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Include Shorts';
+    }
+  }
+}
+
+function toggleSubsShorts() {
+  _subsShowShorts = !_subsShowShorts;
+  buildSubsFeed();
+}
+
+function toggleChPageShorts() {
+  _chPageShowShorts = !_chPageShowShorts;
+  // Re-open the channel page with the new setting
+  goToChannelPage(_chPageName, null);
+}
+
 function sideNav(el, page) {
   setSidebarActive(el);
   switch (page) {
@@ -1332,42 +1425,10 @@ function sideNav(el, page) {
       goHome(); break;
     case 'shorts':
       showShortsPage(); break;
-    case 'subscriptions': {
-      const subs = getSubscriptions();
-      if (!subs.length) {
-        showSpecialPage('Subscriptions', []);
-        toast('You haven\'t subscribed to any channels yet');
-        break;
-      }
-      // Gather videos from all subscribed channels — VIDEOS + uploaded public videos
-      const subsLower = subs.map(s => s.toLowerCase());
-      const subVids = VIDEOS.filter(v => subsLower.includes(v.ch.toLowerCase()));
-      const allPub = getAllPublicVideos().filter(v =>
-        v.ch && subsLower.includes(v.ch.toLowerCase())
-      ).map(v => ({ ...v, _isMyVideo: true }));
-      // Merge, deduplicate by id, sort newest first
-      const seen = new Set();
-      const merged = [...allPub, ...subVids].filter(v => {
-        if (seen.has(v.id)) return false;
-        seen.add(v.id);
-        return true;
-      });
-      function agoToNum(v) {
-        if (v.uploadedAt) return -v.uploadedAt; // uploaded videos: use exact timestamp
-        const s = (v.ago || '').toLowerCase();
-        const n = parseFloat(s) || 1;
-        if (s.includes('hour'))   return n / 24;
-        if (s.includes('day'))    return n;
-        if (s.includes('week'))   return n * 7;
-        if (s.includes('month'))  return n * 30;
-        if (s.includes('year'))   return n * 365;
-        if (s.includes('recent')) return 0;
-        return 9999;
-      }
-      merged.sort((a, b) => agoToNum(a) - agoToNum(b));
-      showSpecialPage('Subscriptions', merged);
+    case 'subscriptions':
+      _subsShowShorts = false;
+      buildSubsFeed();
       break;
-    }
     case 'channel':
       if (!currentUser) { toast('Sign in to see your channel'); openModal(); return; }
       showChannelEditor();
@@ -1408,6 +1469,8 @@ function showChannelEditor() {
   const init = u.name.charAt(0).toUpperCase();
   const hasImg = !!u.avatarImg;
 
+  if (_chPageName !== chName) _chPageShowShorts = false;
+  _chPageName = chName;
   document.getElementById('special-content').innerHTML = `
     <div style="max-width:600px">
 
@@ -2105,7 +2168,7 @@ function ensureSubSidebarItem(ch, meta) {
     item.className = 'sitem';
     item.href = '#';
     item.setAttribute('data-channel', ch);
-    item.addEventListener('click', e => { e.preventDefault(); filterByChannel(item, ch); });
+    item.addEventListener('click', e => { e.preventDefault(); goToChannelPage(ch, null); });
     item.addEventListener('contextmenu', e => { openCtxMenu(e, ch); return false; });
 
     const avaDiv = document.createElement('div');
@@ -3570,7 +3633,10 @@ function goToChannelPage(chName, avatarEl) {
     v.ch && v.ch.toLowerCase() === chName.toLowerCase() &&
     !uploadedByChannel.find(u => u.id === v.id)
   );
-  chVids = [...chVids, ...shortsByChannel, ...uploadedByChannel, ...sharedByChannel];
+  const shortsForPage = _chPageShowShorts
+    ? SHORTS.filter(s => s.ch === chName).map(s => ({ ...s, _isShort: true }))
+    : [];
+  chVids = [...chVids, ...shortsByChannel, ...uploadedByChannel, ...sharedByChannel, ...shortsForPage];
 
   const sample = chVids[0] || {};
 
@@ -3628,11 +3694,14 @@ function goToChannelPage(chName, avatarEl) {
           <div style="font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:var(--text)">${chName}</div>
           <div style="color:var(--muted);font-size:13px;margin-top:2px">${subs} &bull; ${chVids.length} video${chVids.length!==1?'s':''} &bull; ${fmtTotal(totalViews)} total views</div>
         </div>
-        <button onclick="if(isSubscribed('${chName}')){unsubscribeChannel('${chName}','${chName}');this.textContent='Subscribe';this.classList.remove('subd')}else{subscribeChannel('${chName}',null,'${chName}');this.textContent='Subscribed ✓';this.classList.add('subd')}"
-          class="sub-btn ${sample.ch && isSubscribed(chName) ? 'subd' : ''}"
-          style="margin-bottom:4px">
-          ${isSubscribed(chName) ? 'Subscribed ✓' : 'Subscribe'}
-        </button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button onclick="if(isSubscribed('${chName}')){unsubscribeChannel('${chName}','${chName}');this.textContent='Subscribe';this.classList.remove('subd')}else{subscribeChannel('${chName}',null,'${chName}');this.textContent='Subscribed ✓';this.classList.add('subd')}"
+            class="sub-btn ${sample.ch && isSubscribed(chName) ? 'subd' : ''}"
+            style="margin-bottom:4px">
+            ${isSubscribed(chName) ? 'Subscribed ✓' : 'Subscribe'}
+          </button>
+          ${SHORTS.some(s => s.ch === chName) ? `<button id="ch-shorts-btn" onclick="toggleChPageShorts()" style="background:var(--hover);border:1.5px solid var(--border);color:var(--text);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .15s;margin-bottom:4px;display:flex;align-items:center;gap:5px"><svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Include Shorts</button>` : ''}
+        </div>
       </div>
       <!-- Videos grid — newest first -->
       <div style="font-family:'Outfit',sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">${sorted.length > 0 ? 'Videos' : 'No videos found'}</div>
@@ -3651,6 +3720,23 @@ function goToChannelPage(chName, avatarEl) {
       </div>
     </div>`;
 
+  // Style the Include Shorts button to reflect current toggle state
+  requestAnimationFrame(() => {
+    const csBtn = document.getElementById('ch-shorts-btn');
+    if (csBtn) {
+      if (_chPageShowShorts) {
+        csBtn.style.background = 'var(--blue)';
+        csBtn.style.color = '#000';
+        csBtn.style.borderColor = 'var(--blue)';
+        csBtn.innerHTML = '<svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Shorts On';
+      } else {
+        csBtn.style.background = 'var(--hover)';
+        csBtn.style.color = 'var(--text)';
+        csBtn.style.borderColor = 'var(--border)';
+        csBtn.innerHTML = '<svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>Include Shorts';
+      }
+    }
+  });
 }
 
 function hideSearchDropdown() {
