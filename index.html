@@ -3727,11 +3727,9 @@ function goToChannelPage(chName, avatarEl) {
     const shortVids   = sorted.filter(v => v._isShort);
     const sec = document.getElementById('ch-vids-section');
     if (!sec) return;
-    // Outer flex container: videos on left, shorts column on right
-    let html = '<div style="display:flex;gap:24px;align-items:flex-start">';
-
-    // Left: videos
-    html += '<div style="flex:1;min-width:0">';
+    // Stacked layout: videos on top, shorts below with clear divider
+    let html = '<div>';
+    html += '<div>';
     html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">' + (regularVids.length > 0 ? 'Videos' : 'No videos found') + '</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px">';
     regularVids.forEach(function(v) {
@@ -3745,11 +3743,11 @@ function goToChannelPage(chName, avatarEl) {
     });
     html += '</div></div>';
 
-    // Right: shorts column (only when toggle is on)
+    // Shorts section below with divider gap
     if (shortVids.length > 0) {
-      html += '<div style="width:200px;flex-shrink:0;border-left:1px solid var(--border);padding-left:20px">';
-      html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px">Shorts</div>';
-      html += '<div style="display:flex;flex-direction:column;gap:12px">';
+      html += '<div style="margin-top:40px;padding-top:32px;border-top:1px solid var(--border)">';
+      html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">Shorts</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px">';
       shortVids.forEach(function(v) {
         html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
       });
