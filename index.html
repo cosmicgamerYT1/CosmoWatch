@@ -1345,13 +1345,26 @@ function sideNav(el, page) {
       const allPub = getAllPublicVideos().filter(v =>
         v.ch && subsLower.includes(v.ch.toLowerCase())
       ).map(v => ({ ...v, _isMyVideo: true }));
-      // Merge, deduplicate by id, newest first
+      // Merge, deduplicate by id, sort newest first
       const seen = new Set();
       const merged = [...allPub, ...subVids].filter(v => {
         if (seen.has(v.id)) return false;
         seen.add(v.id);
         return true;
       });
+      function agoToNum(v) {
+        if (v.uploadedAt) return -v.uploadedAt; // uploaded videos: use exact timestamp
+        const s = (v.ago || '').toLowerCase();
+        const n = parseFloat(s) || 1;
+        if (s.includes('hour'))   return n / 24;
+        if (s.includes('day'))    return n;
+        if (s.includes('week'))   return n * 7;
+        if (s.includes('month'))  return n * 30;
+        if (s.includes('year'))   return n * 365;
+        if (s.includes('recent')) return 0;
+        return 9999;
+      }
+      merged.sort((a, b) => agoToNum(a) - agoToNum(b));
       showSpecialPage('Subscriptions', merged);
       break;
     }
