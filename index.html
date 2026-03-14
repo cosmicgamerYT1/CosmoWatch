@@ -3594,18 +3594,20 @@ function goToChannelPage(chName, avatarEl) {
   }
   const subs = (_ownChannel && currentUser) ? (getMySubscribers ? getMySubscribers().length + ' subscriber' + (getMySubscribers().length !== 1 ? 's' : '') : '0 subscribers') : (sample.subs || '0 subscribers');
 
-  // Sort videos newest first by parsing the "ago" string
-  function agoToDays(ago) {
-    const s = (ago || '').toLowerCase();
+  // Sort videos newest first — use exact uploadedAt timestamp when available
+  function agoToDays(v) {
+    if (v.uploadedAt) return -v.uploadedAt; // exact ms timestamp, negate so newest = smallest
+    const s = (v.ago || '').toLowerCase();
     const n = parseFloat(s) || 1;
-    if (s.includes('hour'))  return n / 24;
-    if (s.includes('day'))   return n;
-    if (s.includes('week'))  return n * 7;
-    if (s.includes('month')) return n * 30;
-    if (s.includes('year'))  return n * 365;
+    if (s.includes('hour'))   return n / 24;
+    if (s.includes('day'))    return n;
+    if (s.includes('week'))   return n * 7;
+    if (s.includes('month'))  return n * 30;
+    if (s.includes('year'))   return n * 365;
+    if (s.includes('recent')) return 0;
     return 9999;
   }
-  const sorted = [...chVids].sort((a, b) => agoToDays(a.ago) - agoToDays(b.ago));
+  const sorted = [...chVids].sort((a, b) => agoToDays(a) - agoToDays(b));
 
   // Count total views
   const totalViews = chVids.reduce((acc,v) => {
