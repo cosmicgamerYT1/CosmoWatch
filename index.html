@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * data: blob:; media-src * data: blob:; img-src * data: blob:; frame-src *;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
+  <link rel="preconnect" href="https://img.youtube.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.youtube-nocookie.com">
+  <link rel="dns-prefetch" href="https://img.youtube.com">
+  <link rel="dns-prefetch" href="https://yt3.googleusercontent.com">
 <title>CosmoWatch</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -199,8 +204,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
 .chip.on{background:var(--text);color:var(--bg)}
 
 /* VIDEO GRID */
-.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px 14px}
-.vcard{cursor:pointer;animation:fadeUp .35s ease both}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px 14px;contain:layout style}
+.vcard{cursor:pointer;animation:fadeUp .35s ease both;will-change:transform;contain:content}
 @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 .vcard:nth-child(1){animation-delay:.00s}.vcard:nth-child(2){animation-delay:.04s}
 .vcard:nth-child(3){animation-delay:.08s}.vcard:nth-child(4){animation-delay:.12s}
@@ -209,9 +214,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
 .vcard:nth-child(9){animation-delay:.32s}.vcard:nth-child(10){animation-delay:.36s}
 .vcard:nth-child(11){animation-delay:.40s}.vcard:nth-child(12){animation-delay:.44s}
 .vcard:nth-child(13){animation-delay:.48s}.vcard:nth-child(14){animation-delay:.52s}
-.thumb-wrap{position:relative;width:100%;padding-top:56.25%;border-radius:12px;overflow:hidden;background:var(--hover);transition:transform .2s}
+.thumb-wrap{position:relative;width:100%;padding-top:56.25%;border-radius:12px;overflow:hidden;background:var(--hover);transition:transform .2s;contain:layout}
 .vcard:hover .thumb-wrap{transform:scale(1.02)}
-.thumb-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.thumb-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;decoding:async}
 .dur{position:absolute;bottom:7px;right:7px;background:rgba(0,0,0,.88);color:#fff;font-size:12px;font-weight:600;border-radius:4px;padding:2px 6px;font-family:'Outfit',sans-serif}
 .vmeta{display:flex;gap:11px;padding:11px 2px 0}
 .ch-ava{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--pill)}
@@ -3208,6 +3213,8 @@ function mvcLoadYT(ytId, startSec) {
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
   iframeEl.allowFullscreen = true;
   iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;min-width:640px';
+  iframeEl.setAttribute('fetchpriority', 'high');
+  iframeEl.setAttribute('loading', 'eager');
   frame.appendChild(iframeEl);
 
   _ytCurrentIdx = currentVideoIdx;
@@ -3245,6 +3252,8 @@ function mvcLoadShort(ytId) {
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
   iframeEl.allowFullscreen = true;
   iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;min-width:640px';
+  iframeEl.setAttribute('fetchpriority', 'high');
+  iframeEl.setAttribute('loading', 'eager');
   frame.appendChild(iframeEl);
   requestAnimationFrame(function() {
     requestAnimationFrame(function() { iframeEl.src = url; });
@@ -3777,7 +3786,7 @@ function goToChannelPage(chName, avatarEl) {
         html += '<div class="vcard" onclick="playMyVideo(\'+v.id+\')" style="cursor:pointer"><div class="thumb-wrap">' + thumb + '<span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + (v.ago?' &bull; '+v.ago:'') + '</div></div></div></div>';
       } else {
         const origIdx = VIDEOS.indexOf(v);
-        html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ts ? timeAgo(v.ts) : v.ago) + '</div></div></div></div>';
+        html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ts ? timeAgo(v.ts) : v.ago) + '</div></div></div></div>';
       }
     });
     html += '</div></div>';
@@ -3788,7 +3797,7 @@ function goToChannelPage(chName, avatarEl) {
       html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">Shorts</div>';
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px">';
       shortVids.forEach(function(v) {
-        html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
+        html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/hqdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/mqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
       });
       html += '</div></div>';
     }
