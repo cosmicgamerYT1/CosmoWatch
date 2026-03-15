@@ -3539,11 +3539,16 @@ function ensureCurrentInAccounts() {
     currentUser._id = 'acc_' + Date.now();
     try { localStorage.setItem('cosmowatch_user', JSON.stringify(currentUser)); } catch(e) {}
   }
-  const existing = accounts.find(a => a._id === currentUser._id);
-  if (!existing) {
-    accounts.push({_id: currentUser._id, name: currentUser.name, avatarColor: currentUser.avatarColor, avatarImg: currentUser.avatarImg});
-    saveAccounts(accounts);
+  const idx = accounts.findIndex(a => a._id === currentUser._id);
+  if (idx === -1) {
+    accounts.push({_id: currentUser._id, name: currentUser.name, avatarColor: currentUser.avatarColor, avatarImg: currentUser.avatarImg || ''});
+  } else {
+    // Always sync latest name, avatar colour and avatar image back to accounts list
+    accounts[idx].name        = currentUser.name;
+    accounts[idx].avatarColor = currentUser.avatarColor;
+    accounts[idx].avatarImg   = currentUser.avatarImg || '';
   }
+  saveAccounts(accounts);
 }
 function renderAccountsList() {
   ensureCurrentInAccounts();
