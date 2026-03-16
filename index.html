@@ -1439,11 +1439,27 @@ function showLivePage() {
   const _sb = document.getElementById('subs-shorts-btn'); if (_sb) _sb.style.display = 'none';
   const content = document.getElementById('special-content');
 
-  // Check if current user is streaming
-  const isLive = !!_liveStream;
-  const streamer = isLive ? (currentUser ? currentUser.name : 'You') : null;
-  const streamerAva = isLive && currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
-  const streamerColor = isLive && currentUser && currentUser.avatarColor ? currentUser.avatarColor : 'linear-gradient(135deg,#ff4e4e,#c0392b)';
+  // Check this tab AND other tabs via localStorage
+  let liveData = null;
+  if (_liveStream) {
+    liveData = {
+      channel: currentUser ? currentUser.name : 'You',
+      ava: currentUser && currentUser.avatarImg ? currentUser.avatarImg : '',
+      color: currentUser && currentUser.avatarColor ? currentUser.avatarColor : 'linear-gradient(135deg,#ff4e4e,#c0392b)',
+      thisTab: true
+    };
+  } else {
+    try {
+      const stored = localStorage.getItem('cosmowatch_live');
+      if (stored) liveData = JSON.parse(stored);
+    } catch(e) {}
+  }
+
+  const isLive = !!liveData;
+  const streamer = isLive ? liveData.channel : null;
+  const streamerAva = isLive ? (liveData.ava || '') : '';
+  const streamerColor = isLive ? (liveData.color || 'linear-gradient(135deg,#ff4e4e,#c0392b)') : 'linear-gradient(135deg,#ff4e4e,#c0392b)';
+  const isThisTab = isLive && liveData.thisTab;
 
   if (!isLive) {
     content.innerHTML = `
@@ -1467,7 +1483,7 @@ function showLivePage() {
         1 stream live
       </span>
     </div>
-    <div onclick="resumeLiveStream()" style="cursor:pointer;max-width:420px">
+    <div onclick="${isThisTab ? 'resumeLiveStream()' : 'toast(\'Switch to the tab where your stream is running\')'}" style="cursor:pointer;max-width:420px">
       <div class="thumb-wrap" style="background:#111;margin-bottom:10px">
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e,#16213e)">
           <svg width="56" height="56" fill="rgba(255,78,78,.7)" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -2895,6 +2911,16 @@ function applyNewThumbnail(input, i) {
 let _liveStream = null;
 function _startGoLiveWithStream(stream) {
   _liveStream = stream;
+  // Broadcast to other tabs via localStorage
+  try {
+    const liveData = {
+      channel: currentUser ? currentUser.name : 'You',
+      ava: currentUser && currentUser.avatarImg ? currentUser.avatarImg : '',
+      color: currentUser && currentUser.avatarColor ? currentUser.avatarColor : 'linear-gradient(135deg,#ff4e4e,#c0392b)',
+      startedAt: Date.now()
+    };
+    localStorage.setItem('cosmowatch_live', JSON.stringify(liveData));
+  } catch(e) {}
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('player-page').classList.add('on');
   document.getElementById('special-page').style.display = 'none';
@@ -2955,6 +2981,7 @@ function startGoLive() {
 }
 function stopGoLive() {
   if (_liveStream) { _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; }
+  try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
   toast('Stream ended');
   showCosmoEditor();
 }
@@ -3204,7 +3231,7 @@ function buildCustomPlayer(src, title) {
   // Tear down previous
   var prev = document.getElementById('my-vid-el');
   if (prev) { prev.pause(); prev.src = ''; prev.load(); }
-  if (window._liveStream) { window._liveStream.getTracks().forEach(function(t){t.stop();}); window._liveStream = null; }
+  if (window._liveStream) { window._liveStream.getTracks().forEach(function(t){t.stop();}); window._liveStream = null; try { localStorage.removeItem('cosmowatch_live'); } catch(e) {} }
   clearTimeout(window._mvcHideTimer);
 
   document.getElementById('homePage').style.display = 'none';
@@ -4300,6 +4327,18 @@ function ctxUnsub() {
     if (countEl) countEl.textContent = subs.length;
   } catch(e) {}
 })();
+
+// ── Listen for live stream changes from other tabs ──
+window.addEventListener('storage', function(e) {
+  if (e.key === 'cosmowatch_live') {
+    // If Live page is currently open, refresh it
+    const sp = document.getElementById('special-page');
+    const title = document.getElementById('special-title');
+    if (sp && sp.style.display !== 'none' && title && title.textContent === 'Live') {
+      showLivePage();
+    }
+  }
+});
 
 // ── Auto-publish scheduled videos whose time has arrived ──
 (function checkScheduled() {
