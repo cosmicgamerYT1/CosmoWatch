@@ -2824,40 +2824,65 @@ function applyNewThumbnail(input, i) {
 
 // ── Go Live ──
 let _liveStream = null;
+function _startGoLiveWithStream(stream) {
+  _liveStream = stream;
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('player-page').classList.add('on');
+  document.getElementById('special-page').style.display = 'none';
+  const vframe = document.getElementById('vframe');
+  const hasVideo = stream.getVideoTracks().length > 0;
+  vframe.innerHTML = `
+    <video id="live-preview" autoplay muted playsinline
+      style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;${hasVideo?'transform:scaleX(-1)':''}"></video>
+    <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.6);padding:6px 14px;border-radius:20px">
+      <div style="width:10px;height:10px;border-radius:50%;background:#ff4e4e;animation:livepulse 1s infinite alternate"></div>
+      <span style="color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700">LIVE${hasVideo?'':' (audio only)'}</span>
+    </div>
+    <style>@keyframes livepulse{from{opacity:1}to{opacity:0.2}}</style>
+    ${!hasVideo ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><svg width="80" height="80" fill="#555" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg></div>' : ''}
+    <div style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%)">
+      <button onclick="stopGoLive()" style="background:#ff4e4e;border:none;color:#fff;padding:10px 24px;border-radius:20px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer">⏹ End Stream</button>
+    </div>`;
+  document.getElementById('live-preview').srcObject = stream;
+  document.getElementById('ptitle').textContent = (currentUser?currentUser.name:'You') + ' — Live';
+  document.getElementById('pviews').textContent = '🔴 Broadcasting now';
+  document.getElementById('pava').src = currentUser&&currentUser.avatarImg ? currentUser.avatarImg : '';
+  document.getElementById('pch').textContent = currentUser ? currentUser.name : 'You';
+  document.getElementById('psubs').textContent = '';
+  document.getElementById('pdesc').textContent = 'You are live on CosmoWatch!';
+  document.getElementById('chead').textContent = '';
+  document.getElementById('subBtn').style.display = 'none';
+  document.getElementById('commentsList').innerHTML = '';
+  document.getElementById('relList').innerHTML = '';
+  currentVideoIdx = -1;
+}
+
 function startGoLive() {
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-    _liveStream = stream;
-    document.getElementById('homePage').style.display = 'none';
-    document.getElementById('player-page').classList.add('on');
-    document.getElementById('special-page').style.display = 'none';
-    const vframe = document.getElementById('vframe');
-    vframe.innerHTML = `
-      <video id="live-preview" autoplay muted playsinline
-        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)"></video>
-      <div style="position:absolute;top:14px;left:14px;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.6);padding:6px 14px;border-radius:20px">
-        <div style="width:10px;height:10px;border-radius:50%;background:#ff4e4e;animation:livepulse 1s infinite alternate"></div>
-        <span style="color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700">LIVE</span>
-      </div>
-      <style>@keyframes livepulse{from{opacity:1}to{opacity:0.2}}</style>
-      <div style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%)">
-        <button onclick="stopGoLive()" style="background:#ff4e4e;border:none;color:#fff;padding:10px 24px;border-radius:20px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer">⏹ End Stream</button>
-      </div>`;
-    document.getElementById('live-preview').srcObject = stream;
-    document.getElementById('ptitle').textContent = (currentUser?currentUser.name:'You') + ' — Live';
-    document.getElementById('pviews').textContent = '🔴 Broadcasting now';
-    document.getElementById('pava').src = currentUser&&currentUser.avatarImg ? currentUser.avatarImg : '';
-    document.getElementById('pch').textContent = currentUser ? currentUser.name : 'You';
-    document.getElementById('psubs').textContent = '';
-    document.getElementById('pdesc').textContent = 'You are live on CosmoWatch!';
-    document.getElementById('chead').textContent = '';
-    document.getElementById('subBtn').style.display = 'none';
-    document.getElementById('commentsList').innerHTML = '';
-    document.getElementById('relList').innerHTML = '';
-    currentVideoIdx = -1;
-  }).catch(err => {
-    if (err.name === 'NotAllowedError') toast('⚠ Camera/mic access denied — allow in browser settings');
-    else toast('⚠ Could not start livestream: ' + err.message);
-  });
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('⚠ Your browser does not support camera access');
+    return;
+  }
+  // Try camera + mic first
+  navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+    .then(stream => _startGoLiveWithStream(stream))
+    .catch(err => {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast('⚠ Camera/mic access denied — check browser permissions');
+        return;
+      }
+      // Camera busy or unavailable — fall back to audio only
+      if (err.name === 'NotReadableError' || err.name === 'AbortError' || err.name === 'NotFoundError') {
+        toast('📷 Camera unavailable — trying audio only…');
+        navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+          .then(stream => _startGoLiveWithStream(stream))
+          .catch(audioErr => {
+            if (audioErr.name === 'NotAllowedError') toast('⚠ Microphone access denied — check browser permissions');
+            else toast('⚠ Could not start stream: ' + audioErr.message);
+          });
+        return;
+      }
+      toast('⚠ Could not start livestream: ' + err.message);
+    });
 }
 function stopGoLive() {
   if (_liveStream) { _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; }
