@@ -1483,7 +1483,7 @@ function showLivePage() {
         1 stream live
       </span>
     </div>
-    <div onclick="${isThisTab ? 'resumeLiveStream()' : 'toast(\'Switch to the tab where your stream is running\')'}" style="cursor:pointer;max-width:420px">
+    <div onclick="resumeLiveStream()" style="cursor:pointer;max-width:420px">
       <div class="thumb-wrap" style="background:#111;margin-bottom:10px">
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e,#16213e)">
           <svg width="56" height="56" fill="rgba(255,78,78,.7)" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -1507,12 +1507,8 @@ function showLivePage() {
 
 function resumeLiveStream() {
   if (!_liveStream) { toast('Stream has ended'); showLivePage(); return; }
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('special-page').style.display = 'none';
-  document.getElementById('player-page').classList.add('on');
-  // Re-attach the stream to the live preview if it exists
-  const preview = document.getElementById('live-preview');
-  if (preview) { preview.srcObject = _liveStream; }
+  // Rebuild the full live player so everything is correct
+  _startGoLiveWithStream(_liveStream);
 }
 
 function sideNav(el, page) {
