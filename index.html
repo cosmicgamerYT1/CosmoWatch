@@ -1432,7 +1432,11 @@ function toggleChPageShorts() {
 
 function showLivePage() {
   document.getElementById('homePage').style.display = 'none';
-  stopPlayer(); document.getElementById('player-page').classList.remove('on');
+  // Don't call stopPlayer() — it would kill the live stream
+  // Just hide the player page without tearing down media
+  var iframe = document.getElementById('mvc-yt-iframe');
+  if ( iframe) iframe.innerHTML = '';
+  document.getElementById('player-page').classList.remove('on');
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
   document.getElementById('special-title').textContent = 'Live';
@@ -1958,10 +1962,7 @@ function stopPlayer() {
   if (vid) { vid.pause(); vid.src = ''; vid.load(); }
   var iframe = document.getElementById('mvc-yt-iframe');
   if (iframe) iframe.innerHTML = '';
-  if (window._liveStream) {
-    window._liveStream.getTracks().forEach(function(t) { t.stop(); });
-    window._liveStream = null;
-  }
+  // Don't stop _liveStream here — that is handled by stopGoLive() only
   var vframe = document.getElementById('vframe');
   if (vframe) vframe.innerHTML = '';
   clearTimeout(window._mvcHideTimer);
