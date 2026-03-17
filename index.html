@@ -1432,10 +1432,7 @@ function toggleChPageShorts() {
 
 function showLivePage() {
   document.getElementById('homePage').style.display = 'none';
-  // Don't call stopPlayer() — it would kill the live stream
-  // Just hide the player page without tearing down media
-  var iframe = document.getElementById('mvc-yt-iframe');
-  if ( iframe) iframe.innerHTML = '';
+  // Don't call stopPlayer() — preserve any active live stream
   document.getElementById('player-page').classList.remove('on');
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
@@ -1510,8 +1507,24 @@ function showLivePage() {
 }
 
 function resumeLiveStream() {
-  if (!_liveStream) { toast('Stream has ended'); showLivePage(); return; }
-  // Rebuild the full live player so everything is correct
+  if (!_liveStream) {
+    // Try to recover from localStorage signal
+    const stored = localStorage.getItem('cosmowatch_live');
+    if (!stored) { toast('Stream has ended'); showLivePage(); return; }
+    toast('Reconnecting to stream…');
+    showLivePage();
+    return;
+  }
+  // Check if the stream tracks are still active
+  const activeTracks = _liveStream.getTracks().filter(t => t.readyState === 'live');
+  if (activeTracks.length === 0) {
+    _liveStream = null;
+    try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
+    toast('Stream has ended');
+    showLivePage();
+    return;
+  }
+  // Rebuild the full live player
   _startGoLiveWithStream(_liveStream);
 }
 
@@ -1962,9 +1975,9 @@ function stopPlayer() {
   if (vid) { vid.pause(); vid.src = ''; vid.load(); }
   var iframe = document.getElementById('mvc-yt-iframe');
   if (iframe) iframe.innerHTML = '';
-  // Don't stop _liveStream here — that is handled by stopGoLive() only
+  // Preserve live stream — only clear the vframe if NOT currently live
   var vframe = document.getElementById('vframe');
-  if (vframe) vframe.innerHTML = '';
+  if (vframe && !_liveStream) vframe.innerHTML = '';
   clearTimeout(window._mvcHideTimer);
 }
 
