@@ -1431,9 +1431,7 @@ function toggleChPageShorts() {
 }
 
 function showLivePage() {
-  const _savedStream = _liveStream; // capture before any DOM changes
   document.getElementById('homePage').style.display = 'none';
-  // Don't call stopPlayer() — preserve any active live stream
   document.getElementById('player-page').classList.remove('on');
   const sp = document.getElementById('special-page');
   sp.style.display = 'block';
@@ -1441,11 +1439,12 @@ function showLivePage() {
   const _sb = document.getElementById('subs-shorts-btn'); if (_sb) _sb.style.display = 'none';
   const content = document.getElementById('special-content');
 
-  // Check this tab AND other tabs via localStorage
+  // _liveStream is the MediaStream set in _startGoLiveWithStream
+  // Also check window.liveStreamRef as a backup (set alongside _liveStream)
+  const activeStream = _liveStream || window._liveStreamRef || null;
   let liveData = null;
-  if (_savedStream || _liveStream) {
-    // Use captured stream or current (in case it was set after capture)
-    if (!_liveStream && _savedStream) _liveStream = _savedStream;
+  if (activeStream) {
+    if (!_liveStream) _liveStream = activeStream;
     liveData = {
       channel: currentUser ? currentUser.name : 'You',
       ava: currentUser && currentUser.avatarImg ? currentUser.avatarImg : '',
@@ -1510,13 +1509,18 @@ function showLivePage() {
 }
 
 function resumeLiveStream() {
-  if (!_liveStream) {
+  const stream = _liveStream || window._liveStreamRef || null;
+  if (!stream) {
     toast('Stream has ended');
     try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
+    _liveStream = null;
+    window._liveStreamRef = null;
     showLivePage();
     return;
   }
-  _startGoLiveWithStream(_liveStream);
+  _liveStream = stream;
+  window._liveStreamRef = stream;
+  _startGoLiveWithStream(stream);
 }
 
 function sideNav(el, page) {
@@ -2912,6 +2916,7 @@ function applyNewThumbnail(input, i) {
 let _liveStream = null;
 function _startGoLiveWithStream(stream) {
   _liveStream = stream;
+  window._liveStreamRef = stream; // backup reference on window object
   // Broadcast to other tabs via localStorage
   try {
     const liveData = {
@@ -2981,7 +2986,7 @@ function startGoLive() {
     });
 }
 function stopGoLive() {
-  if (_liveStream) { _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; }
+  if (_liveStream) { _liveStream.getTracks().forEach(t => t.stop()); _liveStream = null; window._liveStreamRef = null; }
   try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
   toast('Stream ended');
   showCosmoEditor();
@@ -3232,7 +3237,7 @@ function buildCustomPlayer(src, title) {
   // Tear down previous
   var prev = document.getElementById('my-vid-el');
   if (prev) { prev.pause(); prev.src = ''; prev.load(); }
-  if (window._liveStream) { window._liveStream.getTracks().forEach(function(t){t.stop();}); window._liveStream = null; try { localStorage.removeItem('cosmowatch_live'); } catch(e) {} }
+  // Don't kill _liveStream here — only stopGoLive() should do that
   clearTimeout(window._mvcHideTimer);
 
   document.getElementById('homePage').style.display = 'none';
