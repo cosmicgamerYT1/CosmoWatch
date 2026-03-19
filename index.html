@@ -1431,6 +1431,7 @@ function toggleChPageShorts() {
 }
 
 function showLivePage() {
+  const _savedStream = _liveStream; // capture before any DOM changes
   document.getElementById('homePage').style.display = 'none';
   // Don't call stopPlayer() — preserve any active live stream
   document.getElementById('player-page').classList.remove('on');
@@ -1442,7 +1443,9 @@ function showLivePage() {
 
   // Check this tab AND other tabs via localStorage
   let liveData = null;
-  if (_liveStream) {
+  if (_savedStream || _liveStream) {
+    // Use captured stream or current (in case it was set after capture)
+    if (!_liveStream && _savedStream) _liveStream = _savedStream;
     liveData = {
       channel: currentUser ? currentUser.name : 'You',
       ava: currentUser && currentUser.avatarImg ? currentUser.avatarImg : '',
@@ -1508,23 +1511,11 @@ function showLivePage() {
 
 function resumeLiveStream() {
   if (!_liveStream) {
-    // Try to recover from localStorage signal
-    const stored = localStorage.getItem('cosmowatch_live');
-    if (!stored) { toast('Stream has ended'); showLivePage(); return; }
-    toast('Reconnecting to stream…');
-    showLivePage();
-    return;
-  }
-  // Check if the stream tracks are still active
-  const activeTracks = _liveStream.getTracks().filter(t => t.readyState === 'live');
-  if (activeTracks.length === 0) {
-    _liveStream = null;
-    try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
     toast('Stream has ended');
+    try { localStorage.removeItem('cosmowatch_live'); } catch(e) {}
     showLivePage();
     return;
   }
-  // Rebuild the full live player
   _startGoLiveWithStream(_liveStream);
 }
 
