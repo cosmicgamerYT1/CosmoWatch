@@ -3331,37 +3331,52 @@ function mvcLoadYT(ytId, startSec) {
   frame.innerHTML = '';
 
   var url = 'https://www.youtube-nocookie.com/embed/' + ytId
-    + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&fs=1&hl=en&color=red'
-    + '&iv_load_policy=3&cc_load_policy=0&origin=' + encodeURIComponent(location.origin);
+    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&enablejsapi=1'
+    + '&origin=' + encodeURIComponent(location.origin);
   if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
-
-  // Create the iframe but do NOT set src yet — wait for layout to settle
-  // so YouTube sees the actual rendered pixel width (not 0px) and serves desktop UI
-  var iframeEl = document.createElement('iframe');
-  iframeEl.id = 'yt-api-frame';
-  iframeEl.width = '1280';
-  iframeEl.height = '720';
-  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-  iframeEl.allowFullscreen = true;
-  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;min-width:640px';
-  iframeEl.setAttribute('fetchpriority', 'high');
-  iframeEl.setAttribute('loading', 'eager');
-  frame.appendChild(iframeEl);
 
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
 
-  // Set src after two animation frames so the browser has fully laid out the container
-  // This ensures YouTube receives a request from a properly-sized iframe (desktop UI)
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      iframeEl.src = url;
-      setTimeout(function() {
-        var f = document.getElementById('yt-api-frame');
-        if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event:'listening'}), '*');
-      }, 1500);
-    });
-  });
+  // Force the container to a concrete pixel size BEFORE creating the iframe.
+  // YouTube decides mobile vs desktop based on the iframe's rendered width at
+  // load time — if it sees < ~480px it serves mobile UI.
+  var vframe = document.getElementById('vframe');
+  var containerW = vframe ? vframe.offsetWidth : 0;
+  if (containerW < 640) containerW = 800; // guarantee desktop width
+
+  function doLoad() {
+    var iframeEl = document.createElement('iframe');
+    iframeEl.id = 'yt-api-frame';
+    // Set explicit px width/height attributes — YouTube reads these
+    iframeEl.width  = String(containerW);
+    iframeEl.height = String(Math.round(containerW * 9 / 16));
+    iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframeEl.allowFullscreen = true;
+    // CSS fills the container visually but attributes tell YT the real size
+    iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+    iframeEl.src = url;
+    frame.appendChild(iframeEl);
+    setTimeout(function() {
+      var f = document.getElementById('yt-api-frame');
+      if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event:'listening'}), '*');
+    }, 1500);
+  }
+
+  // Measure AFTER the player-page has been made visible and laid out
+  // Use requestAnimationFrame x3 to guarantee the browser has painted at least once
+  var ticks = 0;
+  function waitForLayout() {
+    ticks++;
+    var w = vframe ? vframe.offsetWidth : 0;
+    if (w >= 480 || ticks >= 5) {
+      containerW = Math.max(w, 800);
+      doLoad();
+    } else {
+      requestAnimationFrame(waitForLayout);
+    }
+  }
+  requestAnimationFrame(waitForLayout);
 }
 
 // Load a YouTube Short — uses /embed/ with forced landscape dimensions so
