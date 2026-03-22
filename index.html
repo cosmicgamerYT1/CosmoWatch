@@ -3393,53 +3393,40 @@ function mvcLoadYT(ytId, startSec) {
   frame.style.display = 'block';
   frame.innerHTML = '';
 
+  _ytCurrentIdx = currentVideoIdx;
+  _ytCurrentTime = 0;
+
+  // YouTube decides mobile vs desktop UI by reading the iframe's HTML width/height
+  // attributes at the moment the embed URL is first requested. CSS sizing is ignored.
+  // We always set these to 1920x1080 — CSS then scales it to fill the container.
+  // This guarantees YouTube always serves the desktop player regardless of screen size.
   var url = 'https://www.youtube-nocookie.com/embed/' + ytId
     + '?autoplay=1&rel=0&fs=1&hl=en&color=red&enablejsapi=1'
     + '&origin=' + encodeURIComponent(location.origin);
   if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
 
-  _ytCurrentIdx = currentVideoIdx;
-  _ytCurrentTime = 0;
+  var iframeEl = document.createElement('iframe');
+  iframeEl.id = 'yt-api-frame';
+  iframeEl.width  = '1920';
+  iframeEl.height = '1080';
+  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+  iframeEl.allowFullscreen = true;
+  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+  frame.appendChild(iframeEl);
 
-  // Force the container to a concrete pixel size BEFORE creating the iframe.
-  // YouTube decides mobile vs desktop based on the iframe's rendered width at
-  // load time — if it sees < ~480px it serves mobile UI.
-  var vframe = document.getElementById('vframe');
-  var containerW = vframe ? vframe.offsetWidth : 0;
-  if (containerW < 640) containerW = 800; // guarantee desktop width
-
-  function doLoad() {
-    var iframeEl = document.createElement('iframe');
-    iframeEl.id = 'yt-api-frame';
-    // Set explicit px width/height attributes — YouTube reads these
-    iframeEl.width  = String(containerW);
-    iframeEl.height = String(Math.round(containerW * 9 / 16));
-    iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-    iframeEl.allowFullscreen = true;
-    // CSS fills the container visually but attributes tell YT the real size
-    iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+  // Set src AFTER appending to DOM so the browser has a layout context
+  requestAnimationFrame(function() {
     iframeEl.src = url;
-    frame.appendChild(iframeEl);
     setTimeout(function() {
       var f = document.getElementById('yt-api-frame');
       if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event:'listening'}), '*');
     }, 1500);
-  }
+  });
 
-  // Measure AFTER the player-page has been made visible and laid out
-  // Use requestAnimationFrame x3 to guarantee the browser has painted at least once
-  var ticks = 0;
-  function waitForLayout() {
-    ticks++;
-    var w = vframe ? vframe.offsetWidth : 0;
-    if (w >= 480 || ticks >= 5) {
-      containerW = Math.max(w, 800);
-      doLoad();
-    } else {
-      requestAnimationFrame(waitForLayout);
-    }
-  }
-  requestAnimationFrame(waitForLayout);
+  // Dummy block to match closing brace count
+  void function() {
+    void function() {
+  }();};
 }
 
 // Load a YouTube Short — uses /embed/ with forced landscape dimensions so
@@ -3456,17 +3443,13 @@ function mvcLoadShort(ytId) {
     + '&origin=' + encodeURIComponent(location.origin);
   var iframeEl = document.createElement('iframe');
   iframeEl.id = 'yt-api-frame';
-  iframeEl.width = '1280';
-  iframeEl.height = '720';
+  iframeEl.width = '1920';
+  iframeEl.height = '1080';
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
   iframeEl.allowFullscreen = true;
-  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;min-width:640px';
-  iframeEl.setAttribute('fetchpriority', 'high');
-  iframeEl.setAttribute('loading', 'eager');
+  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
   frame.appendChild(iframeEl);
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() { iframeEl.src = url; });
-  });
+  requestAnimationFrame(function() { iframeEl.src = url; });
 }
 
 // ── Player controls (native video only — YT videos use YT's own controls) ──
