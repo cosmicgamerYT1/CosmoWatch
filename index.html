@@ -1006,49 +1006,65 @@ async function syncChannelToShared() {
   if (!currentUser) return;
   try {
     const key = currentUser.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    // Include public video metadata so other browsers can find them in search
+
+    // ── Step 1: Resolve avatar URL first — upload to Cloudinary if still base64 ──
+    let avaForFirebase = (currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:'))
+      ? currentUser.avatarImg : '';
+    if (!avaForFirebase && currentUser.avatarImg && currentUser.avatarImg.startsWith('data:')) {
+      try {
+        const blob = await (await fetch(currentUser.avatarImg)).blob();
+        const fd = new FormData();
+        fd.append('file', blob);
+        fd.append('upload_preset', 'cosmowatch');
+        const r = await fetch('https://api.cloudinary.com/v1_1/dcy17iamc/image/upload', { method:'POST', body:fd });
+        const rd = await r.json();
+        if (rd.secure_url) {
+          avaForFirebase = rd.secure_url;
+          // Persist the cloud URL so we don't re-upload next time
+          currentUser.avatarImg = rd.secure_url;
+          localStorage.setItem('cosmowatch_user', JSON.stringify(currentUser));
+          // Update in accounts list too
+          try {
+            const accs = JSON.parse(localStorage.getItem('cosmowatch_accounts') || '[]');
+            const ai = accs.findIndex(a => a._id === currentUser._id);
+            if (ai !== -1) { accs[ai].avatarImg = rd.secure_url; localStorage.setItem('cosmowatch_accounts', JSON.stringify(accs)); }
+          } catch(e) {}
+        }
+      } catch(e) { console.warn('Avatar upload to Cloudinary failed:', e); }
+    }
+
+    // ── Step 2: Update uploaderAvatar on stored videos with the resolved cloud URL ──
+    if (avaForFirebase) {
+      const vidsToUpdate = getMyVideos();
+      let changed = false;
+      vidsToUpdate.forEach(v => {
+        if (!v.uploaderAvatar || v.uploaderAvatar.startsWith('data:')) {
+          v.uploaderAvatar = avaForFirebase; changed = true;
+        }
+      });
+      if (changed) saveMyVideos(vidsToUpdate);
+    }
+
+    // ── Step 3: Now build the video list (avatar is resolved) ──
     const myVids = getMyVideos().filter(v => v.privacy === 'public' || !v.privacy).map(v => {
-      // Generate Cloudinary thumbnail URL from cloudUrl
-      let cloudThumb = '';
-      if (v.cloudUrl && v.cloudUrl.includes('cloudinary.com')) {
-        // Use Cloudinary's eager thumbnail: f_jpg converts video frame to image
+      // Use the stored thumb (already a Cloudinary URL from doSave)
+      // Fall back to deriving from cloudUrl if thumb is still a base64 or missing
+      let cloudThumb = (v.thumb && !v.thumb.startsWith('data:')) ? v.thumb : '';
+      if (!cloudThumb && v.cloudUrl && v.cloudUrl.includes('cloudinary.com')) {
         cloudThumb = v.cloudUrl
-          .replace('/video/upload/', '/video/upload/w_320,h_180,c_fill,so_1,f_jpg/')
+          .replace('/video/upload/', '/video/upload/w_640,h_360,c_fill,so_1,f_jpg/')
           .replace(/\/([^\/]+)$/, (m, fn) => '/' + fn.replace(/\.[^.]+$/, '.jpg'));
       }
       return {
         id: v.id, title: v.title, ch: currentUser.name, views: v.views || '',
         ago: v.ago || '', dur: v.dur || '', uploadedAt: v.uploadedAt || null,
         privacy: 'public', _isMyVideo: true,
-        uploaderAvatar: (v.uploaderAvatar && !v.uploaderAvatar.startsWith('data:')) ? v.uploaderAvatar : ((currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:')) ? currentUser.avatarImg : ''),
+        uploaderAvatar: avaForFirebase || (v.uploaderAvatar && !v.uploaderAvatar.startsWith('data:') ? v.uploaderAvatar : ''),
         uploaderColor: currentUser.avatarColor || '',
         cloudUrl: v.cloudUrl || '',
         thumb: cloudThumb
       };
     });
-    // Upload avatar to Cloudinary if it's a local base64 (so Firebase gets a real URL)
-    let avaForFirebase = (currentUser.avatarImg && !currentUser.avatarImg.startsWith('data:'))
-      ? currentUser.avatarImg : '';
-    if (!avaForFirebase && currentUser.avatarImg && currentUser.avatarImg.startsWith('data:')) {
-      try {
-        const blob = await (await fetch(currentUser.avatarImg)).blob();
-        const fd = new FormData(); fd.append('file', blob); fd.append('upload_preset', 'cosmowatch');
-        const r = await fetch('https://api.cloudinary.com/v1_1/dcy17iamc/image/upload', { method:'POST', body:fd });
-        const rd = await r.json();
-        if (rd.secure_url) {
-          avaForFirebase = rd.secure_url;
-          currentUser.avatarImg = rd.secure_url;
-          localStorage.setItem('cosmowatch_user', JSON.stringify(currentUser));
-        }
-      } catch(e) { console.warn('Avatar upload failed', e); }
-    }
-    // Also update uploaderAvatar on all stored videos with the cloud URL
-    if (avaForFirebase) {
-      const vidsToUpdate = getMyVideos();
-      let changed = false;
-      vidsToUpdate.forEach(v => { if (!v.uploaderAvatar || v.uploaderAvatar.startsWith('data:')) { v.uploaderAvatar = avaForFirebase; changed = true; } });
-      if (changed) saveMyVideos(vidsToUpdate);
-    }
     const data = {
       name: currentUser.name,
       ava: avaForFirebase,
@@ -1167,7 +1183,7 @@ function showSpecialPage(title, videos) {
       // Short video card - clicks open in CosmoWatch player
       card.innerHTML = `
         <div class="thumb-wrap">
-          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
+          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
           <span class="dur">${v.dur||''}</span>
           <span style="position:absolute;top:6px;left:7px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px">SHORT</span>
         </div>
@@ -1203,7 +1219,7 @@ function showSpecialPage(title, videos) {
       const origIdx = VIDEOS.indexOf(v);
       card.innerHTML = `
         <div class="thumb-wrap">
-          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
+          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
           <span class="dur">${v.dur}</span>
         </div>
         <div class="vmeta">
@@ -1350,7 +1366,7 @@ function showWatchHistory() {
     const timeLabel = savedTime > 5 ? ('<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.8);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;font-family:monospace">' + (progressPct < 95 ? '▶ Resume' : '✓ Watched') + '</span>') : '';
     card.innerHTML = `
       <div class="thumb-wrap">
-        <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
+        <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy" decoding="async">
         <span class="dur">${v.dur}</span>
         ${resumeLabel}${timeLabel}
       </div>
@@ -1828,7 +1844,7 @@ function filterByChannel(el, chName) {
         card.className = 'vcard';
         card.innerHTML = `
           <div class="thumb-wrap">
-            <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy">
+            <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" alt="" loading="lazy">
             <span class="dur">${v.dur}</span>
           </div>
           <div class="vmeta">
@@ -2036,7 +2052,7 @@ function renderGrid(list) {
     card.className = 'vcard';
     card.innerHTML = `
       <div class="thumb-wrap">
-        <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'"
+        <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'"
              onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'" alt="" loading="lazy">
         <span class="dur">${v.dur}</span>
       </div>
@@ -2460,7 +2476,7 @@ function renderRelated(curIdx) {
   document.getElementById('relList').innerHTML = list.map(v => `
       <div class="rel-card" onclick="openVideo(${VIDEOS.indexOf(v)})">
         <div class="rel-tw">
-          <img class="rel-thumb" src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'"
+          <img class="rel-thumb" src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'"
                onerror="this.src='https://img.youtube.com/vi/${v.id}/0.jpg'" alt="" loading="lazy">
           <span class="dur">${v.dur}</span>
         </div>
@@ -2528,6 +2544,18 @@ function getAllPublicVideos() {
     }
   } catch(e) {}
   return allVideos;
+}
+
+function ytThumb(id) {
+  // Returns best available thumbnail URL — tries maxres, falls to hq
+  return 'https://img.youtube.com/vi/' + id + '/maxresdefault.jpg';
+}
+function ytThumbEl(id, style) {
+  // Returns an img element string that gracefully degrades from maxres → hq → mq
+  style = style || 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+  return '<img src="https://img.youtube.com/vi/' + id + '/maxresdefault.jpg"'
+    + ' onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/\'+id+\'/hqdefault.jpg\'"'
+    + ' style="' + style + '" alt="" loading="lazy" decoding="async">';
 }
 
 function timeAgo(ts) {
@@ -3053,12 +3081,39 @@ async function handleVideoUpload(input) {
   async function doSave(thumb, dur) {
     if (saved) return;
     saved = true;
-    // Upload to Cloudinary FIRST (independently of IndexedDB)
     _uploadInProgress = false;
     const uploaderName = currentUser ? currentUser.name : 'You';
-    const uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
     const uploaderColor = currentUser && currentUser.avatarColor ? currentUser.avatarColor : '';
 
+    // ── Resolve avatar to a cloud URL first ──
+    let uploaderAvatar = currentUser && currentUser.avatarImg ? currentUser.avatarImg : '';
+    if (uploaderAvatar && uploaderAvatar.startsWith('data:')) {
+      try {
+        const blob = await (await fetch(uploaderAvatar)).blob();
+        const fd = new FormData(); fd.append('file', blob); fd.append('upload_preset', 'cosmowatch');
+        const ar = await fetch('https://api.cloudinary.com/v1_1/dcy17iamc/image/upload', { method:'POST', body:fd });
+        const ad = await ar.json();
+        if (ad.secure_url) {
+          uploaderAvatar = ad.secure_url;
+          currentUser.avatarImg = ad.secure_url;
+          localStorage.setItem('cosmowatch_user', JSON.stringify(currentUser));
+        }
+      } catch(e) { console.warn('Avatar pre-upload failed:', e); }
+    }
+
+    // ── Upload thumbnail to Cloudinary so other users can see it ──
+    let cloudThumbUrl = '';
+    if (thumb && thumb.startsWith('data:')) {
+      try {
+        const tblob = await (await fetch(thumb)).blob();
+        const tfd = new FormData(); tfd.append('file', tblob); tfd.append('upload_preset', 'cosmowatch');
+        const tr = await fetch('https://api.cloudinary.com/v1_1/dcy17iamc/image/upload', { method:'POST', body:tfd });
+        const td = await tr.json();
+        if (td.secure_url) cloudThumbUrl = td.secure_url;
+      } catch(e) { console.warn('Thumbnail upload failed:', e); }
+    }
+
+    // ── Upload video to Cloudinary ──
     let cloudUrl = '';
     try {
       toast('⏫ Uploading to cloud… please wait');
@@ -3072,6 +3127,12 @@ async function handleVideoUpload(input) {
       const uploadData = await uploadRes.json();
       if (uploadRes.ok && uploadData.secure_url) {
         cloudUrl = uploadData.secure_url;
+        // Generate Cloudinary thumbnail from the video if we don't have one yet
+        if (!cloudThumbUrl) {
+          cloudThumbUrl = cloudUrl
+            .replace('/video/upload/', '/video/upload/w_640,h_360,c_fill,so_1,f_jpg/')
+            .replace(/\/([^\/]+)$/, (m, fn) => '/' + fn.replace(/\.[^.]+$/, '.jpg'));
+        }
         toast('☁️ Cloud upload done! Saving locally…');
       } else {
         const errMsg = (uploadData.error && uploadData.error.message) ? uploadData.error.message : JSON.stringify(uploadData);
@@ -3083,11 +3144,13 @@ async function handleVideoUpload(input) {
       console.error('Cloudinary upload exception:', e);
     }
 
-    // Save to IndexedDB (best effort — not required for cloud playback)
+    // Save to IndexedDB (best effort)
     try { await storeVideoBlob(id, file); } catch(e) { console.warn('IndexedDB save failed:', e); }
 
+    // Use cloudThumbUrl as thumb so other users can see it; keep base64 as local fallback
+    const finalThumb = cloudThumbUrl || thumb;
     const myVids = getMyVideos();
-    myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb, dur: dur || '', privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor, cloudUrl });
+    myVids.unshift({ id, title, size: sizeMB + ' MB', date: dateStr, uploadedAt: Date.now(), thumb: finalThumb, dur: dur || '', privacy: 'public', ch: uploaderName, uploaderAvatar, uploaderColor, cloudUrl });
     saveMyVideos(myVids);
     input.value = '';
     URL.revokeObjectURL(objUrl);
@@ -3633,7 +3696,7 @@ function openPlaylist(pi) {
       ${vids.length===0 ? `<div style="text-align:center;padding:48px;color:var(--muted)">This playlist is empty.<br>Click ➕ Add to playlist on any video.</div>` :
         vids.map(v=>`
         <div style="display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openVideo(${VIDEOS.indexOf(v)})" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
-          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" style="width:100px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0">
+          <img src="https://img.youtube.com/vi/${v.id}/maxresdefault.jpg" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${v.id}/hqdefault.jpg'" style="width:100px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0">
           <div style="flex:1;min-width:0">
             <div style="font-weight:600;color:var(--text);font-size:14px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.title}</div>
             <div style="color:var(--muted);font-size:12px">${v.ch} • ${v.views}</div>
@@ -3940,7 +4003,7 @@ function goToChannelPage(chName, avatarEl) {
         html += '<div class="vcard" onclick="playMyVideo(\'+v.id+\')" style="cursor:pointer"><div class="thumb-wrap">' + thumb + '<span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + (v.ago?' &bull; '+v.ago:'') + '</div></div></div></div>';
       } else {
         const origIdx = VIDEOS.indexOf(v);
-        html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/maxresdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ts ? timeAgo(v.ts) : v.ago) + '</div></div></div></div>';
+        html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/maxresdefault.jpg" onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ts ? timeAgo(v.ts) : v.ago) + '</div></div></div></div>';
       }
     });
     html += '</div></div>';
@@ -3951,7 +4014,7 @@ function goToChannelPage(chName, avatarEl) {
       html += '<div style="font-family:Outfit,sans-serif;font-size:17px;font-weight:700;color:var(--text);margin-bottom:14px;padding-left:4px">Shorts</div>';
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px">';
       shortVids.forEach(function(v) {
-        html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/maxresdefault.jpg" onerror="this.src=\'https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
+        html += '<div class="vcard" onclick="(function(){var s=SHORTS.find(function(x){return x.id===\'' + v.id + '\''+'});if(s)openShort(s);})()" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/maxresdefault.jpg" onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + '</div></div></div></div>';
       });
       html += '</div></div>';
     }
@@ -4249,7 +4312,7 @@ function _renderSearchChannelBanners(channels, q) {
         ${ch.videos.slice(0,6).map(v => {
           const thumb = v._isMyVideo
             ? (v.thumb || '')
-            : `https://img.youtube.com/vi/${v.id}/maxresdefault.jpg`;
+            : `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`;
           const origIdx = v._isMyVideo ? -1 : VIDEOS.indexOf(v);
           const clickFn = v._isMyVideo
             ? `playMyVideo('${v.id}')`
