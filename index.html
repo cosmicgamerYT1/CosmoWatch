@@ -3569,8 +3569,8 @@ function mvcSetQuality(q, el) {
 
   // Only Cloudinary URLs support quality transforms
   if (src && src.includes('cloudinary.com') && src.includes('/video/upload/')) {
-    // Remove any existing transform segment
-    var cleanSrc = src.replace(/\/video\/upload\/[^/]+\//, '/video/upload/');
+    // Remove any existing transform segment (but NOT the version number which starts with v+digits)
+    var cleanSrc = src.replace(/\/video\/upload\/(?!v\d)[^/]+\//, '/video/upload/');
     var transforms = {
       'Auto':  'q_auto',
       '1080p': 'q_auto:best,h_1080',
