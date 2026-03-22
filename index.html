@@ -5,6 +5,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * data: blob:; media-src * data: blob:; img-src * data: blob:; frame-src *;">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
+  <link rel="preconnect" href="https://www.youtube.com" crossorigin>
+  <script src="https://www.youtube.com/iframe_api"></script>
   <link rel="preconnect" href="https://img.youtube.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.youtube-nocookie.com">
   <link rel="dns-prefetch" href="https://img.youtube.com">
@@ -246,7 +248,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)}
 .act.liked{background:var(--red);color:#fff}
 .ch-row{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--border)}
 .ch-ava-lg{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--pill);flex-shrink:0}
-.ch-name{font-weight:600;font-size:15px;transition:color .15s}.ch-name:hover{color:var(--blue)}
+.ch-name{font-weight:600;font-size:15px;transition:color .15s}.ch-name:hover{color:var(--blue)}@keyframes spin{to{transform:rotate(360deg)}}
 .ch-subs{font-size:13px;color:var(--muted)}
 .sub-btn{
   margin-left:auto;background:var(--text);color:var(--bg);border:none;border-radius:20px;
@@ -699,6 +701,9 @@ const VIDEOS = [
   {id:'po6VUweHXWI',title:'What Channel Will Reach 1 TRILLION Views FIRST?',ch:'Timeworks',ava:'https://yt3.googleusercontent.com/42ffwzIe9i55CVc2WIVrhdTRYZS7wA97YQxd-ZxUYhzj3tVVHXMW1vuLKAxnc1l7jlaVkpcecI4=s68-c-k-c0x00ffffff-no-rj',subs:'700K subscribers',views:'204K views',ago:'today',ts:1773446400000,dur:'4:22',cat:'entertainment',desc:'Timeworks investigates which YouTube channel is on track to hit 1 trillion total views first — the race is closer than you think.'},
   {id:'Rg5gtl50eXQ',title:'Who Is The NEXT Channel To Reach 400 Million Subscribers?',ch:'Timeworks',ava:'https://yt3.googleusercontent.com/42ffwzIe9i55CVc2WIVrhdTRYZS7wA97YQxd-ZxUYhzj3tVVHXMW1vuLKAxnc1l7jlaVkpcecI4=s68-c-k-c0x00ffffff-no-rj',subs:'700K subscribers',views:'33K views',ago:'1 week ago',ts:1772841600000,dur:'4:26',cat:'entertainment',desc:'Only a handful of channels have crossed 100 million subscribers — Timeworks breaks down who is racing toward 400 million next.'},
   {id:'OeIINPhhV6g',title:'This Video Has ONLY 1 Comment! but HOW?',ch:'Timeworks',ava:'https://yt3.googleusercontent.com/42ffwzIe9i55CVc2WIVrhdTRYZS7wA97YQxd-ZxUYhzj3tVVHXMW1vuLKAxnc1l7jlaVkpcecI4=s68-c-k-c0x00ffffff-no-rj',subs:'700K subscribers',views:'11K views',ago:'4 days ago',ts:1773187200000,dur:'3:22',cat:'entertainment',desc:'A mysterious YouTube video with just a single comment — Timeworks investigates how this is even possible.'},
+  {id:'G8RuxRsGeHM',title:'I Made Music for UNSTABLE SMP w/ Nombra101! | Logic Pro X',ch:'HotSauceBeats',ava:'https://yt3.googleusercontent.com/fwrjGJQcxSd0pe7PVXcPyjitQOCTluMrztaKWYLDcppF7efNxCKInarHtGsaN5Vxol62UISt=s68-c-k-c0x00ffffff-no-rj',subs:'HotSauceBeats',views:'32K views',ago:'3 weeks ago',ts:1772150400000,dur:'14:23',cat:'music',desc:'HotSauceBeats creates an original track for the Unstable SMP in Logic Pro X, collaborating with Nombra101 for an epic result.'},
+  {id:'SXzls6bu7c0',title:'I Made Gangsta Music for ManePear! | Logic Pro X',ch:'HotSauceBeats',ava:'https://yt3.googleusercontent.com/fwrjGJQcxSd0pe7PVXcPyjitQOCTluMrztaKWYLDcppF7efNxCKInarHtGsaN5Vxol62UISt=s68-c-k-c0x00ffffff-no-rj',subs:'HotSauceBeats',views:'8K views',ago:'2 weeks ago',ts:1772755200000,dur:'17:37',cat:'music',desc:'HotSauceBeats crafts a full gangsta-style beat for ManePear from scratch in Logic Pro X.'},
+  {id:'9w5xdX8XcLw',title:'I Made Pirate Music for Jaden-MAN! | Logic Pro X',ch:'HotSauceBeats',ava:'https://yt3.googleusercontent.com/fwrjGJQcxSd0pe7PVXcPyjitQOCTluMrztaKWYLDcppF7efNxCKInarHtGsaN5Vxol62UISt=s68-c-k-c0x00ffffff-no-rj',subs:'HotSauceBeats',views:'5K views',ago:'2 days ago',ts:1773964800000,dur:'14:25',cat:'music',desc:'HotSauceBeats builds a full pirate-themed track for Jaden-MAN in Logic Pro X.'},
   ];
 
 const SHORTS = [
@@ -747,19 +752,21 @@ let _ytCurrentIdx   = null;
 let likedVideos     = [];   // video indexes
 
 // YouTube iframe postMessage time tracking (for resume on history)
-window.addEventListener('message', function(e) {
-  try {
-    if (typeof e.data !== 'string') return;
-    var d = JSON.parse(e.data);
-    if (d.event === 'infoDelivery' && d.info && typeof d.info.currentTime === 'number') {
-      _ytCurrentTime = d.info.currentTime;
-      if (_ytCurrentIdx !== null && _ytCurrentTime > 5) {
-        videoTimestamps[_ytCurrentIdx] = Math.floor(_ytCurrentTime);
-        try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(e) {}
+// Poll current time from YT.Player API every 2 seconds for history resume
+setInterval(function() {
+  if (window._ytPlayer && typeof window._ytPlayer.getCurrentTime === 'function') {
+    try {
+      var t = window._ytPlayer.getCurrentTime();
+      if (typeof t === 'number' && t > 0) {
+        _ytCurrentTime = t;
+        if (_ytCurrentIdx !== null && t > 5) {
+          videoTimestamps[_ytCurrentIdx] = Math.floor(t);
+          try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(ee) {}
+        }
       }
-    }
-  } catch(ex) {}
-});
+    } catch(e) {}
+  }
+}, 2000);
 let watchLaterList  = [];   // video indexes
 
 // ─────────────────────────────────────────────
@@ -1988,6 +1995,11 @@ function stopPlayer() {
   _ytCurrentIdx = null;
   var vid = document.getElementById('my-vid-el');
   if (vid) { vid.pause(); vid.src = ''; vid.load(); }
+  // Destroy the YT.Player instance if active
+  if (window._ytPlayer) {
+    try { window._ytPlayer.destroy(); } catch(e) {}
+    window._ytPlayer = null;
+  }
   var iframe = document.getElementById('mvc-yt-iframe');
   if (iframe) iframe.innerHTML = '';
   // Preserve live stream — only clear the vframe if NOT currently live
@@ -3383,50 +3395,82 @@ function buildCustomPlayer(src, title) {
   }
 }
 
-// Load YouTube embed (official iframe with YT controls — most reliable)
+// YouTube IFrame API state
+var _ytPlayer = null;
+var _ytApiReady = false;
+
+// Called automatically by YouTube IFrame API when it finishes loading
+function onYouTubeIframeAPIReady() {
+  _ytApiReady = true;
+  // If a video was queued before API was ready, load it now
+  if (window._ytPendingLoad) {
+    var p = window._ytPendingLoad;
+    window._ytPendingLoad = null;
+    mvcLoadYT(p.ytId, p.startSec);
+  }
+}
+
+// Load YouTube using the official IFrame Player API — always serves desktop UI
 function mvcLoadYT(ytId, startSec) {
   var poster = document.getElementById('mvc-yt-poster');
   var frame  = document.getElementById('mvc-yt-iframe');
   if (poster) poster.style.display = 'none';
   if (!frame) return;
 
-  frame.style.display = 'block';
-  frame.innerHTML = '';
-
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
 
-  // YouTube decides mobile vs desktop UI by reading the iframe's HTML width/height
-  // attributes at the moment the embed URL is first requested. CSS sizing is ignored.
-  // We always set these to 1920x1080 — CSS then scales it to fill the container.
-  // This guarantees YouTube always serves the desktop player regardless of screen size.
-  var url = 'https://www.youtube-nocookie.com/embed/' + ytId
-    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&enablejsapi=1'
-    + '&origin=' + encodeURIComponent(location.origin);
-  if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
+  // If API not ready yet, queue the load
+  if (!_ytApiReady || typeof YT === 'undefined' || !YT.Player) {
+    window._ytPendingLoad = { ytId: ytId, startSec: startSec };
+    frame.style.display = 'block';
+    frame.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000"><div style="width:48px;height:48px;border:4px solid #3ea6ff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div></div>';
+    return;
+  }
 
-  var iframeEl = document.createElement('iframe');
-  iframeEl.id = 'yt-api-frame';
-  iframeEl.width  = '1920';
-  iframeEl.height = '1080';
-  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-  iframeEl.allowFullscreen = true;
-  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
-  frame.appendChild(iframeEl);
+  // Destroy existing player if any
+  if (_ytPlayer) {
+    try { _ytPlayer.destroy(); } catch(e) {}
+    _ytPlayer = null;
+  }
 
-  // Set src AFTER appending to DOM so the browser has a layout context
-  requestAnimationFrame(function() {
-    iframeEl.src = url;
-    setTimeout(function() {
-      var f = document.getElementById('yt-api-frame');
-      if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event:'listening'}), '*');
-    }, 1500);
+  frame.style.display = 'block';
+  frame.innerHTML = '';
+
+  // Create a div for the IFrame API to target
+  var playerDiv = document.createElement('div');
+  playerDiv.id = 'yt-api-frame';
+  playerDiv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+  frame.appendChild(playerDiv);
+
+  var startTime = (startSec && startSec > 5) ? Math.floor(startSec) : 0;
+
+  _ytPlayer = new YT.Player('yt-api-frame', {
+    width: '100%',
+    height: '100%',
+    videoId: ytId,
+    playerVars: {
+      autoplay: 1,
+      rel: 0,
+      fs: 1,
+      hl: 'en',
+      color: 'red',
+      start: startTime,
+      playsinline: 0,
+      origin: location.origin
+    },
+    events: {
+      onReady: function(e) {
+        e.target.playVideo();
+      },
+      onStateChange: function(e) {
+        if (e.data === YT.PlayerState.PLAYING) {
+          // Track playback time via polling
+          _ytCurrentTime = e.target.getCurrentTime();
+        }
+      }
+    }
   });
-
-  // Dummy block to match closing brace count
-  void function() {
-    void function() {
-  }();};
 }
 
 // Load a YouTube Short — uses /embed/ with forced landscape dimensions so
