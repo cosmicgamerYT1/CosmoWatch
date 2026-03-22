@@ -3258,7 +3258,11 @@ async function playMyVideo(id) {
     } catch(e) {}
   }
 
-  getVideoBlob(id).then(async blob => {
+  // If IndexedDB fails for any reason, skip straight to cloud URL
+  let _blobResult = null;
+  try { _blobResult = await getVideoBlob(id); } catch(e) { _blobResult = null; }
+
+  (async function(blob) {
     let url;
     if (blob) {
       url = URL.createObjectURL(blob);
@@ -3299,7 +3303,7 @@ async function playMyVideo(id) {
     document.getElementById('relList').innerHTML = '';
     currentVideoIdx = -1;
     currentVideoId = id;
-  }).catch(() => toast('⚠ Could not load video'));
+  })(_blobResult);
 }
 
 // ─────────────────────────────────────────────
