@@ -3450,9 +3450,15 @@ function mvcLoadYT(ytId, startSec) {
 
   var startTime = (startSec && startSec > 5) ? Math.floor(startSec) : 0;
 
+  // Measure the actual container — use a large fallback so YouTube
+  // always receives desktop-sized dimensions as HTML attributes
+  var vframe = document.getElementById('vframe');
+  var pw = (vframe && vframe.offsetWidth > 200) ? vframe.offsetWidth : 1280;
+  var ph = Math.round(pw * 9 / 16);
+
   _ytPlayer = new YT.Player('yt-api-frame', {
-    width: '100%',
-    height: '100%',
+    width: pw,
+    height: ph,
     videoId: ytId,
     playerVars: {
       autoplay: 1,
@@ -3461,16 +3467,21 @@ function mvcLoadYT(ytId, startSec) {
       hl: 'en',
       color: 'red',
       start: startTime,
-      playsinline: 0,
+      playsinline: 1,
+      modestbranding: 1,
       origin: location.origin
     },
     events: {
       onReady: function(e) {
         e.target.playVideo();
+        // After player is ready, force the iframe CSS to fill the container
+        try {
+          var iframe = e.target.getIframe();
+          iframe.style.cssText = 'position:absolute;inset:0;width:100%!important;height:100%!important;border:none';
+        } catch(err) {}
       },
       onStateChange: function(e) {
         if (e.data === YT.PlayerState.PLAYING) {
-          // Track playback time via polling
           _ytCurrentTime = e.target.getCurrentTime();
         }
       }
