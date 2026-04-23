@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
   <link rel="preconnect" href="https://www.youtube.com" crossorigin>
-  <script src="https://www.youtube.com/iframe_api"></script>
   <link rel="preconnect" href="https://img.youtube.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.youtube-nocookie.com">
   <link rel="dns-prefetch" href="https://img.youtube.com">
@@ -1995,11 +1994,6 @@ function stopPlayer() {
   _ytCurrentIdx = null;
   var vid = document.getElementById('my-vid-el');
   if (vid) { vid.pause(); vid.src = ''; vid.load(); }
-  // Destroy the YT.Player instance if active
-  if (window._ytPlayer) {
-    try { window._ytPlayer.destroy(); } catch(e) {}
-    window._ytPlayer = null;
-  }
   var iframe = document.getElementById('mvc-yt-iframe');
   if (iframe) iframe.innerHTML = '';
   // Preserve live stream — only clear the vframe if NOT currently live
@@ -3400,22 +3394,13 @@ function buildCustomPlayer(src, title) {
   }
 }
 
-// YouTube IFrame API state
-var _ytPlayer = null;
-var _ytApiReady = false;
+// Load YouTube by rendering the iframe at TRUE 1920x1080 CSS pixels,
+// then scaling it down with transform:scale() to fit the container.
+// This is the most reliable way to force desktop UI — the iframe is
+// genuinely 1920px wide in the browser, not just in attributes.
+var _ytPlayer = null; // kept for compatibility
+function onYouTubeIframeAPIReady() {} // no-op, not using YT API
 
-// Called automatically by YouTube IFrame API when it finishes loading
-function onYouTubeIframeAPIReady() {
-  _ytApiReady = true;
-  // If a video was queued before API was ready, load it now
-  if (window._ytPendingLoad) {
-    var p = window._ytPendingLoad;
-    window._ytPendingLoad = null;
-    mvcLoadYT(p.ytId, p.startSec);
-  }
-}
-
-// Load YouTube using the official IFrame Player API — always serves desktop UI
 function mvcLoadYT(ytId, startSec) {
   var poster = document.getElementById('mvc-yt-poster');
   var frame  = document.getElementById('mvc-yt-iframe');
@@ -3425,67 +3410,50 @@ function mvcLoadYT(ytId, startSec) {
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
 
-  // If API not ready yet, queue the load
-  if (!_ytApiReady || typeof YT === 'undefined' || !YT.Player) {
-    window._ytPendingLoad = { ytId: ytId, startSec: startSec };
-    frame.style.display = 'block';
-    frame.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000"><div style="width:48px;height:48px;border:4px solid #3ea6ff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div></div>';
-    return;
-  }
-
-  // Destroy existing player if any
-  if (_ytPlayer) {
-    try { _ytPlayer.destroy(); } catch(e) {}
-    _ytPlayer = null;
-  }
+  var url = 'https://www.youtube.com/embed/' + ytId
+    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&playsinline=1&modestbranding=1';
+  if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
 
   frame.style.display = 'block';
   frame.innerHTML = '';
 
-  // Create a div for the IFrame API to target
-  var playerDiv = document.createElement('div');
-  playerDiv.id = 'yt-api-frame';
-  playerDiv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
-  frame.appendChild(playerDiv);
+  // Outer wrapper: clips the oversized iframe to the container bounds
+  var wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:absolute;inset:0;overflow:hidden';
 
-  var startTime = (startSec && startSec > 5) ? Math.floor(startSec) : 0;
+  var iframeEl = document.createElement('iframe');
+  iframeEl.id = 'yt-api-frame';
+  // Fixed large CSS pixel size — YouTube sees a real 1920x1080 iframe
+  iframeEl.width  = '1920';
+  iframeEl.height = '1080';
+  iframeEl.style.cssText = 'width:1920px;height:1080px;border:none;transform-origin:top left';
+  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+  iframeEl.allowFullscreen = true;
 
-  // Measure the actual container — use a large fallback so YouTube
-  // always receives desktop-sized dimensions as HTML attributes
-  var vframe = document.getElementById('vframe');
-  var pw = (vframe && vframe.offsetWidth > 200) ? vframe.offsetWidth : 1280;
-  var ph = Math.round(pw * 9 / 16);
+  wrapper.appendChild(iframeEl);
+  frame.appendChild(wrapper);
 
-  _ytPlayer = new YT.Player('yt-api-frame', {
-    width: pw,
-    height: ph,
-    videoId: ytId,
-    playerVars: {
-      autoplay: 1,
-      rel: 0,
-      fs: 1,
-      hl: 'en',
-      color: 'red',
-      start: startTime,
-      playsinline: 1,
-      modestbranding: 1,
-      origin: location.origin
-    },
-    events: {
-      onReady: function(e) {
-        e.target.playVideo();
-        // After player is ready, force the iframe CSS to fill the container
-        try {
-          var iframe = e.target.getIframe();
-          iframe.style.cssText = 'position:absolute;inset:0;width:100%!important;height:100%!important;border:none';
-        } catch(err) {}
-      },
-      onStateChange: function(e) {
-        if (e.data === YT.PlayerState.PLAYING) {
-          _ytCurrentTime = e.target.getCurrentTime();
-        }
-      }
-    }
+  // Scale iframe down to fit container using CSS transform
+  function scaleToFit() {
+    var containerW = frame.offsetWidth  || 640;
+    var containerH = frame.offsetHeight || 360;
+    var scaleX = containerW / 1920;
+    var scaleY = containerH / 1080;
+    var scale  = Math.min(scaleX, scaleY);
+    iframeEl.style.transform = 'scale(' + scale + ')';
+    // Centre horizontally if there's leftover space
+    var scaledW = 1920 * scale;
+    var scaledH = 1080 * scale;
+    iframeEl.style.marginLeft = ((containerW - scaledW) / 2) + 'px';
+    iframeEl.style.marginTop  = ((containerH - scaledH) / 2) + 'px';
+  }
+
+  scaleToFit();
+  window.addEventListener('resize', scaleToFit);
+
+  // Set src last so browser has laid out the 1920px iframe before YouTube loads
+  requestAnimationFrame(function() {
+    iframeEl.src = url;
   });
 }
 
