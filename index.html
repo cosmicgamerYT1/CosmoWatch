@@ -3410,7 +3410,7 @@ function mvcLoadYT(ytId, startSec) {
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
 
-  var url = 'https://www.youtube.com/embed/' + ytId
+  var url = 'https://www.youtube-nocookie.com/embed/' + ytId
     + '?autoplay=1&rel=0&fs=1&hl=en&color=red&playsinline=1&modestbranding=1';
   if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
 
