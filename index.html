@@ -751,21 +751,20 @@ let _ytCurrentIdx   = null;
 let likedVideos     = [];   // video indexes
 
 // YouTube iframe postMessage time tracking (for resume on history)
-// Poll current time from YT.Player API every 2 seconds for history resume
-setInterval(function() {
-  if (window._ytPlayer && typeof window._ytPlayer.getCurrentTime === 'function') {
-    try {
-      var t = window._ytPlayer.getCurrentTime();
-      if (typeof t === 'number' && t > 0) {
-        _ytCurrentTime = t;
-        if (_ytCurrentIdx !== null && t > 5) {
-          videoTimestamps[_ytCurrentIdx] = Math.floor(t);
-          try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(ee) {}
-        }
+// Track YT playback time via postMessage
+window.addEventListener('message', function(e) {
+  try {
+    if (typeof e.data !== 'string') return;
+    var d = JSON.parse(e.data);
+    if (d.event === 'infoDelivery' && d.info && typeof d.info.currentTime === 'number') {
+      _ytCurrentTime = d.info.currentTime;
+      if (_ytCurrentIdx !== null && _ytCurrentTime > 5) {
+        videoTimestamps[_ytCurrentIdx] = Math.floor(_ytCurrentTime);
+        try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(ee) {}
       }
-    } catch(e) {}
-  }
-}, 2000);
+    }
+  } catch(ex) {}
+});
 let watchLaterList  = [];   // video indexes
 
 // ─────────────────────────────────────────────
@@ -3410,48 +3409,23 @@ function mvcLoadYT(ytId, startSec) {
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
 
-  var url = 'https://www.youtube-nocookie.com/embed/' + ytId
-    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&playsinline=1&modestbranding=1';
-  if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
-
   frame.style.display = 'block';
   frame.innerHTML = '';
 
-  // Outer wrapper: clips the oversized iframe to the container bounds
-  var wrapper = document.createElement('div');
-  wrapper.style.cssText = 'position:absolute;inset:0;overflow:hidden';
+  var url = 'https://www.youtube-nocookie.com/embed/' + ytId
+    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&modestbranding=1&enablejsapi=1';
+  if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
 
   var iframeEl = document.createElement('iframe');
   iframeEl.id = 'yt-api-frame';
-  // Fixed large CSS pixel size — YouTube sees a real 1920x1080 iframe
-  iframeEl.width  = '1920';
-  iframeEl.height = '1080';
-  iframeEl.style.cssText = 'width:1920px;height:1080px;border:none;transform-origin:top left';
+  iframeEl.width  = '1280';
+  iframeEl.height = '720';
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   iframeEl.allowFullscreen = true;
+  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+  frame.appendChild(iframeEl);
 
-  wrapper.appendChild(iframeEl);
-  frame.appendChild(wrapper);
-
-  // Scale iframe down to fit container using CSS transform
-  function scaleToFit() {
-    var containerW = frame.offsetWidth  || 640;
-    var containerH = frame.offsetHeight || 360;
-    var scaleX = containerW / 1920;
-    var scaleY = containerH / 1080;
-    var scale  = Math.min(scaleX, scaleY);
-    iframeEl.style.transform = 'scale(' + scale + ')';
-    // Centre horizontally if there's leftover space
-    var scaledW = 1920 * scale;
-    var scaledH = 1080 * scale;
-    iframeEl.style.marginLeft = ((containerW - scaledW) / 2) + 'px';
-    iframeEl.style.marginTop  = ((containerH - scaledH) / 2) + 'px';
-  }
-
-  scaleToFit();
-  window.addEventListener('resize', scaleToFit);
-
-  // Set src last so browser has laid out the 1920px iframe before YouTube loads
+  // Set src after one frame so the iframe is in the DOM with a layout context
   requestAnimationFrame(function() {
     iframeEl.src = url;
   });
@@ -3467,13 +3441,12 @@ function mvcLoadShort(ytId) {
   frame.style.display = 'block';
   frame.innerHTML = '';
   var url = 'https://www.youtube-nocookie.com/embed/' + ytId
-    + '?autoplay=1&rel=0&modestbranding=1&fs=1&hl=en&loop=1&playlist=' + ytId
-    + '&origin=' + encodeURIComponent(location.origin);
+    + '?autoplay=1&rel=0&modestbranding=1&fs=1&hl=en&loop=1&playlist=' + ytId;
   var iframeEl = document.createElement('iframe');
   iframeEl.id = 'yt-api-frame';
-  iframeEl.width = '1920';
-  iframeEl.height = '1080';
-  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+  iframeEl.width = '1280';
+  iframeEl.height = '720';
+  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   iframeEl.allowFullscreen = true;
   iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
   frame.appendChild(iframeEl);
