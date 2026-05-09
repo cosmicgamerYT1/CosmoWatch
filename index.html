@@ -3257,16 +3257,15 @@ async function playMyVideo(id) {
 
   (async function(blob) {
     let url;
-    if (blob) {
+    // Always try cloudUrl first — it's the most reliable source
+    const cloudUrl = await getCloudUrl();
+    if (cloudUrl) {
+      url = cloudUrl;
+    } else if (blob) {
       url = URL.createObjectURL(blob);
     } else {
-      const cloudUrl = await getCloudUrl();
-      if (cloudUrl) {
-        url = cloudUrl;
-      } else {
-        toast("⚠ Video not available — it may not have finished uploading yet. Try again in a moment.");
-        return;
-      }
+      toast("⚠ Video not available — try re-uploading or check your internet connection.");
+      return;
     }
 
     const title        = vid ? vid.title : 'Uploaded Video';
@@ -3422,12 +3421,14 @@ function mvcLoadYT(ytId, startSec) {
   iframeEl.height = '720';
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   iframeEl.allowFullscreen = true;
-  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
+  iframeEl.setAttribute('fetchpriority', 'high');
+  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;min-width:640px';
   frame.appendChild(iframeEl);
 
-  // Set src after one frame so the iframe is in the DOM with a layout context
   requestAnimationFrame(function() {
-    iframeEl.src = url;
+    requestAnimationFrame(function() {
+      iframeEl.src = url;
+    });
   });
 }
 
