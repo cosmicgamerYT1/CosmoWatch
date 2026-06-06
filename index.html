@@ -3409,12 +3409,27 @@ function mvcLoadYT(ytId, startSec) {
 
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
+  if (_ytScaleCleanup) { _ytScaleCleanup(); _ytScaleCleanup = null; }
 
-  frame.style.display = 'block';
-  frame.style.overflow = 'hidden';
+  // Read parent width while frame is still hidden - offsetWidth is stable here
+  var parentW = (frame.parentElement && frame.parentElement.offsetWidth) || 640;
+
+  // Make the container a fixed 1280x720 and scale it to fit the player area.
+  // The iframe inside fills it 100%/100% so YouTube sees a real 1280px-wide
+  // viewport and serves the desktop player UI. Transforming the container (not
+  // the iframe) avoids conflicts with the .video-frame iframe CSS rule which
+  // would otherwise fight width/height set on the iframe itself.
+  frame.style.cssText = 'position:absolute;top:0;left:0;width:1280px;height:720px;overflow:hidden;z-index:5;transform-origin:0 0;display:block';
   frame.innerHTML = '';
 
-  if (_ytScaleCleanup) { _ytScaleCleanup(); _ytScaleCleanup = null; }
+  function applyScale() {
+    if (!frame.parentElement) return;
+    var pw = frame.parentElement.offsetWidth || parentW;
+    frame.style.transform = 'scale(' + (pw / 1280) + ')';
+  }
+  applyScale();
+  window.addEventListener('resize', applyScale);
+  _ytScaleCleanup = function() { window.removeEventListener('resize', applyScale); };
 
   var url = 'https://www.youtube-nocookie.com/embed/' + ytId
     + '?autoplay=1&rel=0&fs=1&hl=en&color=red&modestbranding=1&enablejsapi=1';
@@ -3425,19 +3440,8 @@ function mvcLoadYT(ytId, startSec) {
   iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
   iframeEl.allowFullscreen = true;
   iframeEl.setAttribute('fetchpriority', 'high');
-  // Fixed 1280×720 CSS size — YouTube reads this and serves the desktop player UI.
-  // transform:scale() shrinks it visually to fit the container without changing
-  // the layout width that YouTube detects.
-  iframeEl.style.cssText = 'position:absolute;top:0;left:0;width:1280px;height:720px;border:none;transform-origin:0 0';
+  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
   frame.appendChild(iframeEl);
-
-  function applyScale() {
-    var w = frame.offsetWidth || 640;
-    iframeEl.style.transform = 'scale(' + (w / 1280) + ')';
-  }
-  applyScale();
-  window.addEventListener('resize', applyScale);
-  _ytScaleCleanup = function() { window.removeEventListener('resize', applyScale); };
 
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
