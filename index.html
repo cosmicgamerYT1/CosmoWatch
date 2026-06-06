@@ -1098,11 +1098,42 @@ async function syncChannelToShared() {
   } catch(e) { console.warn('syncChannelToShared failed', e); }
 }
 
+// JSONP loader — bypasses CORS so it works from file:// origins too.
+// Firebase Realtime Database REST API natively supports ?callback= JSONP.
+function _cwJsonpGet(url) {
+  return new Promise(function(resolve, reject) {
+    var name = '_cwfb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    var script = document.createElement('script');
+    var timer = setTimeout(function() { cleanup(); reject(new Error('JSONP timeout')); }, 10000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[name];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[name] = function(data) { cleanup(); resolve(data); };
+    script.onerror = function() { cleanup(); reject(new Error('JSONP script error')); };
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + name;
+    document.head.appendChild(script);
+  });
+}
+
 async function loadSharedChannels() {
   try {
-    const res = await fetch(CW_DB + '/channels.json');
-    if (!res.ok) return;
-    const data = await res.json();
+    let data = null;
+    try {
+      // Try standard fetch first (works when served from a proper origin)
+      const res = await fetch(CW_DB + '/channels.json');
+      if (res.ok) data = await res.json();
+    } catch(fetchErr) {
+      // fetch failed — likely CORS from a file:// origin. Fall back to JSONP
+      // which uses a <script> tag and is not subject to CORS restrictions.
+      try {
+        data = await _cwJsonpGet(CW_DB + '/channels.json');
+      } catch(jsonpErr) {
+        console.warn('loadSharedChannels: fetch and JSONP both failed', jsonpErr);
+        return;
+      }
+    }
     if (!data) return;
     sharedChannels = Object.values(data).filter(Boolean);
     // Also build sharedVideos — all public videos from all Firebase channels
@@ -1991,7 +2022,9 @@ function stopPlayer() {
     try { localStorage.setItem('cosmowatch_timestamps', JSON.stringify(videoTimestamps)); } catch(e) {}
   }
   _ytCurrentIdx = null;
+  clearInterval(window._ytTimeTracker);
   if (_ytScaleCleanup) { _ytScaleCleanup(); _ytScaleCleanup = null; }
+  if (_ytPlayer) { try { _ytPlayer.destroy(); } catch(e) {} _ytPlayer = null; }
   var vid = document.getElementById('my-vid-el');
   if (vid) { vid.pause(); vid.src = ''; vid.load(); }
   var iframe = document.getElementById('mvc-yt-iframe');
@@ -3393,14 +3426,33 @@ function buildCustomPlayer(src, title) {
   }
 }
 
-// Load YouTube by rendering the iframe at TRUE 1920x1080 CSS pixels,
-// then scaling it down with transform:scale() to fit the container.
-// This is the most reliable way to force desktop UI — the iframe is
-// genuinely 1920px wide in the browser, not just in attributes.
-var _ytPlayer = null; // kept for compatibility
-function onYouTubeIframeAPIReady() {} // no-op, not using YT API
-
+// ── YouTube IFrame Player API setup ─────────────────────────────────
+// Uses the official YT API (youtube.com domain) which reliably serves
+// the desktop player. The container is scaled to fit the available space
+// while staying 1280x720 so YouTube always sees a desktop-width viewport.
+var _ytApiReady = false;
+var _ytApiLoading = false;
+var _ytApiQueue = [];
+var _ytPlayer = null;
 var _ytScaleCleanup = null;
+
+function onYouTubeIframeAPIReady() {
+  _ytApiReady = true;
+  _ytApiLoading = false;
+  _ytApiQueue.splice(0).forEach(function(cb) { cb(); });
+}
+
+function _withYTApi(cb) {
+  if (_ytApiReady) { cb(); return; }
+  _ytApiQueue.push(cb);
+  if (!_ytApiLoading) {
+    _ytApiLoading = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+  }
+}
+
 function mvcLoadYT(ytId, startSec) {
   var poster = document.getElementById('mvc-yt-poster');
   var frame  = document.getElementById('mvc-yt-iframe');
@@ -3409,18 +3461,17 @@ function mvcLoadYT(ytId, startSec) {
 
   _ytCurrentIdx = currentVideoIdx;
   _ytCurrentTime = 0;
+  clearInterval(window._ytTimeTracker);
   if (_ytScaleCleanup) { _ytScaleCleanup(); _ytScaleCleanup = null; }
+  if (_ytPlayer) { try { _ytPlayer.destroy(); } catch(e) {} _ytPlayer = null; }
 
-  // Read parent width while frame is still hidden - offsetWidth is stable here
+  // Read parent width before touching the frame
   var parentW = (frame.parentElement && frame.parentElement.offsetWidth) || 640;
 
-  // Make the container a fixed 1280x720 and scale it to fit the player area.
-  // The iframe inside fills it 100%/100% so YouTube sees a real 1280px-wide
-  // viewport and serves the desktop player UI. Transforming the container (not
-  // the iframe) avoids conflicts with the .video-frame iframe CSS rule which
-  // would otherwise fight width/height set on the iframe itself.
+  // Container fixed at 1280x720 — YouTube's JS sees this as the viewport
+  // and renders the full desktop player UI. CSS transform scales it visually.
   frame.style.cssText = 'position:absolute;top:0;left:0;width:1280px;height:720px;overflow:hidden;z-index:5;transform-origin:0 0;display:block';
-  frame.innerHTML = '';
+  frame.innerHTML = '<div id="yt-player-mount" style="position:absolute;top:0;left:0;width:1280px;height:720px"></div>';
 
   function applyScale() {
     if (!frame.parentElement) return;
@@ -3431,21 +3482,38 @@ function mvcLoadYT(ytId, startSec) {
   window.addEventListener('resize', applyScale);
   _ytScaleCleanup = function() { window.removeEventListener('resize', applyScale); };
 
-  var url = 'https://www.youtube-nocookie.com/embed/' + ytId
-    + '?autoplay=1&rel=0&fs=1&hl=en&color=red&modestbranding=1&enablejsapi=1';
-  if (startSec && startSec > 5) url += '&start=' + Math.floor(startSec);
-
-  var iframeEl = document.createElement('iframe');
-  iframeEl.id = 'yt-api-frame';
-  iframeEl.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-  iframeEl.allowFullscreen = true;
-  iframeEl.setAttribute('fetchpriority', 'high');
-  iframeEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none';
-  frame.appendChild(iframeEl);
-
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      iframeEl.src = url;
+  _withYTApi(function() {
+    var mount = document.getElementById('yt-player-mount');
+    if (!mount) return;
+    _ytPlayer = new YT.Player(mount, {
+      width: 1280,
+      height: 720,
+      videoId: ytId,
+      playerVars: {
+        autoplay: 1,
+        rel: 0,
+        fs: 1,
+        hl: 'en',
+        color: 'red',
+        modestbranding: 1,
+        enablejsapi: 1,
+        playsinline: 0
+      },
+      events: {
+        onReady: function(e) {
+          if (startSec && startSec > 5) e.target.seekTo(Math.floor(startSec), true);
+          e.target.playVideo();
+        },
+        onStateChange: function(e) {
+          if (e.data === 1) {
+            window._ytTimeTracker = setInterval(function() {
+              try { if (_ytPlayer) _ytCurrentTime = _ytPlayer.getCurrentTime(); } catch(ex) {}
+            }, 2000);
+          } else {
+            clearInterval(window._ytTimeTracker);
+          }
+        }
+      }
     });
   });
 }
