@@ -4014,7 +4014,7 @@ function goToChannelPage(chName, avatarEl) {
     regularVids.forEach(function(v) {
       if (v._isMyVideo) {
         const thumb = v.thumb ? '<img src="' + v.thumb + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'" alt="">' : '<div style="position:absolute;inset:0;background:#222;display:flex;align-items:center;justify-content:center"><svg width="32" height="32" fill="#555" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg></div>';
-        html += '<div class="vcard" onclick="playMyVideo(\'+v.id+\')" style="cursor:pointer"><div class="thumb-wrap">' + thumb + '<span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + (v.ago?' &bull; '+v.ago:'') + '</div></div></div></div>';
+        html += '<div class="vcard" onclick="playMyVideo(\'' + v.id + '\')" style="cursor:pointer"><div class="thumb-wrap">' + thumb + '<span class="dur">' + (v.dur||'') + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + (v.views||'') + (v.ago?' &bull; '+v.ago:'') + '</div></div></div></div>';
       } else {
         const origIdx = VIDEOS.indexOf(v);
         html += '<div class="vcard" onclick="openVideo(' + origIdx + ')" style="cursor:pointer"><div class="thumb-wrap"><img src="https://img.youtube.com/vi/' + v.id + '/maxresdefault.jpg" onerror="this.onerror=null;this.src=\'https://img.youtube.com/vi/'+v.id+'/hqdefault.jpg\'" alt="" loading="lazy" decoding="async"><span class="dur">' + v.dur + '</span></div><div class="vmeta"><div class="vinfo"><div class="vtitle">' + v.title + '</div><div class="vstats">' + v.views + ' &bull; ' + (v.ts ? timeAgo(v.ts) : v.ago) + '</div></div></div></div>';
@@ -4107,7 +4107,8 @@ function _buildDropdown(q) {
     item.onmouseout  = () => item.style.background = 'transparent';
     // Find avatar for this channel
     const chVid = VIDEOS.find(v => v.ch === name) || SHORTS.find(s => s.ch === name);
-    const ava = chVid ? (chVid.ava || '') : '';
+    const sharedCh = !chVid ? sharedChannels.find(c => c.name && c.name.toLowerCase() === name.toLowerCase()) : null;
+    const ava = chVid ? (chVid.ava || '') : (sharedCh ? (sharedCh.ava || '') : '');
     item.innerHTML = (ava
       ? `<img src="${ava}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
       : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3ea6ff,#1a73e8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${name[0]}</div>`)
@@ -4222,21 +4223,17 @@ function _runSearch(q) {
     }
   } catch(e) {}
 
-  // Also add channels from Firebase shared channels list (for avatar resolution)
+  // Add/update channels from Firebase, populating their videos
   sharedChannels.forEach(sc => {
     if (!sc.name) return;
     const key = sc.name.toLowerCase();
-    if (!channelMap[key]) channelMap[key] = { name: sc.name, ava: sc.ava || '', subs: '', videos: [], _sharedOnly: true };
-    else if (!channelMap[key].ava && sc.ava) channelMap[key].ava = sc.ava;
-  });
-
-  // Add shared channels from other browsers
-  sharedChannels.forEach(sc => {
-    const key = sc.name.toLowerCase();
+    const scVids = (sc.videos || []).map(v => ({ ...v, _isMyVideo: true }));
     if (!channelMap[key]) {
-      channelMap[key] = { name: sc.name, ava: sc.ava || '', subs: '', videos: [], _sharedOnly: true };
-    } else if (!channelMap[key].ava && sc.ava) {
-      channelMap[key].ava = sc.ava;
+      channelMap[key] = { name: sc.name, ava: sc.ava || '', subs: '', videos: scVids };
+    } else {
+      if (!channelMap[key].ava && sc.ava) channelMap[key].ava = sc.ava;
+      const existingIds = new Set(channelMap[key].videos.map(v => v.id));
+      scVids.forEach(v => { if (!existingIds.has(v.id)) channelMap[key].videos.push(v); });
     }
   });
 
